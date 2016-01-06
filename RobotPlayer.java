@@ -179,6 +179,27 @@ public class RobotPlayer{
 			}
 			return false;
 		}
+		/*
+		 * Scan for all enemy robots
+		 * Finds enemy Archon
+		 */
+		public boolean scanArchon() {
+			Team opponentTeam = Team.ZOMBIE;
+			RobotInfo[] robots;
+			if(rc.getTeam() ==Team.A) {
+				opponentTeam = Team.B;
+			}
+			if(rc.getTeam() == Team.B) {
+				opponentTeam = Team.A;
+			}
+			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
+			for(int i = 0; i < robots.length; i++) {
+				if(robots[i].type == RobotType.ARCHON) {
+					return true;
+				}
+			}
+			return false;
+		}
 	}
 
 	/**
