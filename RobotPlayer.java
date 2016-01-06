@@ -463,7 +463,21 @@ public class RobotPlayer{
 			if(Math.random()*3>1) {
 				return RobotType.SCOUT;
 			}
+			if(numberOfRobotsInRadius(RobotType.GUARD,3,ourTeam) == 7){
+				return RobotType.SCOUT;
+			}
 			return RobotType.GUARD;
+		}
+
+		public static int numberOfRobotsInRadius(RobotType type,int radiusSqr,Team team){
+			int count = 0;
+			RobotInfo[] robats = rc.senseNearbyRobots(radiusSqr,team);
+			for(int i = 0; i < robats.length; i++){
+				if(robats[i].type.equals(type)){
+					count++;
+				}
+			}
+			return count;
 		}
 	}
 	
