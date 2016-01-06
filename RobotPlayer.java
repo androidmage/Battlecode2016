@@ -230,16 +230,12 @@ public class RobotPlayer{
 		public static MapLocation scanArchonLocation() {
 			RobotInfo[] robots;
 			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
-			int pos = -1;
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
-					pos = i;
+					return robots[i].location;
 				}
 			}
-			if(pos == -1){
-				return null;
-			}
-			return robots[pos].location;
+			return null;
 		}
 
 		/**
@@ -331,7 +327,7 @@ public class RobotPlayer{
 			}
 			
 			// create Tuple
-			Tuple<MapLocation, Double> locationAndSize = new RobotPlayer().new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
+			Tuple<MapLocation, Double> locationAndSize = new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
 			
 			return locationAndSize;
 		}
@@ -404,7 +400,7 @@ public class RobotPlayer{
 			int encryptor = 0;
 			for(int i = 0; i < 8; i++){
 				encryptor = encryptor << 4;
-				encryptor |= key & ((1 << 4) - 1);
+				encryptor |= key & 0b1111;
 			}
 			int first = (information.first ^ encryptor) << 8;
 			int second = (information.second ^ encryptor);
@@ -420,12 +416,54 @@ public class RobotPlayer{
 	 * 
 	 * a simple tuple class so that tuples can be used.
 	 */
-	public class Tuple<X, Y> { 
+	public static class Tuple<X, Y> { 
 		  public X first; 
 		  public Y second; 
 		  public Tuple(X first, Y second) { 
 		    this.first = first; 
 		    this.second = second; 
 		  } 
+	}
+
+	/**
+	 * class FancyMessage
+	 *
+	 * @senderID: the id of the robot that sent the Signal
+	 *
+	 */
+	public static class FancyMessage{
+		public int senderID;
+		public boolean[] bits;
+		public int type;
+		public FancyMessage(){
+		}
+		public static FancyMessage getFromRecievedSignal(Signal s){
+			FancyMessage ret = new FancyMessage();
+			ret.senderID = s.getID();
+			int[] is = s.getMessage();
+			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
+			ret.type = info.first;
+			ret.bits = info.second;
+			return ret;
+		}
+		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
+			int typeIn = inputs.first & 0b1111;
+			int keyIn = inputs.first & 0b11110000;
+			int encryptor = 0;
+			for(int i = 0; i < 8; i++){
+				encryptor = encryptor << 4;
+				encryptor |= keyIn & 0b1111;
+			}
+			int first = (inputs.first ^ encryptor) >> 8;
+			int second = (inputs.second ^ encryptor);
+			boolean[] bit = new boolean[56];
+			for(int i = 0; i < 24; i++){
+				bit[i] = (first & (1 << i)) != 0;
+			}
+			for(int i = 0; i < 32; i++){
+				bit[i + 24] = (second & (1 << i)) != 0;
+			}
+			return new Tuple<Integer,boolean[]>(typeIn,bit);
+		}
 	} 
 }
