@@ -12,6 +12,8 @@ public class RobotPlayer{
 	 */
 	static RobotController rc;
 	static Random randall;
+	static Team ourTeam;
+	static Team opponentTeam;
 
 	/**
 	 * run
@@ -25,6 +27,14 @@ public class RobotPlayer{
 		rc = r;
 		randall = new Random(rc.getID());
 		RobotType selftype = rc.getType();
+		if(rc.getTeam() ==Team.A) {
+			ourTeam = Team.A;
+			opponentTeam = Team.B;
+		}
+		if(rc.getTeam() == Team.B) {
+			ourTeam = Team.B;
+			opponentTeam = Team.A;
+		}
 		if(selftype == RobotType.ARCHON){
 			Archon s = new RobotPlayer().new Archon();
 			s.run();
@@ -184,14 +194,7 @@ public class RobotPlayer{
 		 * Finds enemy Archon
 		 */
 		public boolean scanArchon() {
-			Team opponentTeam = Team.ZOMBIE;
 			RobotInfo[] robots;
-			if(rc.getTeam() ==Team.A) {
-				opponentTeam = Team.B;
-			}
-			if(rc.getTeam() == Team.B) {
-				opponentTeam = Team.A;
-			}
 			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
@@ -200,6 +203,18 @@ public class RobotPlayer{
 			}
 			return false;
 		}
+	}
+	
+	public MapLocation scanArchonLocation() {
+		RobotInfo[] robots;
+		robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
+		int pos = 0;
+		for(int i = 0; i < robots.length; i++) {
+			if(robots[i].type == RobotType.ARCHON) {
+				pos = i;
+			}
+		}
+		return robots[pos].location;
 	}
 
 	/**
