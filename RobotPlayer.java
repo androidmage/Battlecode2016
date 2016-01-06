@@ -17,6 +17,7 @@ public class RobotPlayer{
 	static Random randall;
 	static Team ourTeam;
 	static Team opponentTeam;
+	static int[] zombieRounds;
 
 	/**
 	 * run
@@ -45,8 +46,42 @@ public class RobotPlayer{
 			Scout s = new RobotPlayer().new Scout();
 			s.run();
 		}
+		else if(selftype == RobotType.GUARD) {
+			Guard s = new RobotPlayer().new Guard();
+			s.run();
+		}
 	}
-
+	
+	/** class Guard
+	 * 
+	 * The class outlining our Guard bots
+	 * 
+	 * 
+	 */
+	private class Guard {
+		
+		public Guard() {
+		}
+		
+		public void run() {
+			while(true){
+				try{
+					if(rc.isCoreReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots(1, Team.ZOMBIE);
+						for(RobotInfo robot: robots) {
+							if(rc.canAttackLocation(robot.location)) {
+								rc.attackLocation(robot.location);
+							}
+						}
+						rc.move(Direction.EAST);
+					}
+					Clock.yield();
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 	/**
 	 * class Archon
 	 *
@@ -60,6 +95,7 @@ public class RobotPlayer{
 		 *
 		 */
 		public Archon(){
+			zombieRounds = rc.getZombieSpawnSchedule().getRounds();
 		}
 
 		/**
@@ -74,7 +110,8 @@ public class RobotPlayer{
 				try{
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
-						if(RESOURCE_FUNCTIONS.tryBuild(RobotType.SCOUT)){ //See function in RESOURCE_FUNCTIONS to know what it does
+						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
+						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							Clock.yield();
 							rc.broadcastMessageSignal(0,0,9);
@@ -408,6 +445,24 @@ public class RobotPlayer{
 			first |= type;
 			rc.broadcastMessageSignal(first,second,radiusSqr);
 			return true;
+		}
+		
+		/**
+		 * RobotType chooseRobotType
+		 * @param none
+		 * @return RobotType that will be produced
+		 */
+		public static RobotType chooseRobotType() {
+			for(int i: zombieRounds){
+				int currentRound = rc.getRoundNum();
+				if(i-currentRound<=15 && i-currentRound>=0){
+					return RobotType.SCOUT;
+				}
+			}
+			if(Math.random()*10>1) {
+				return RobotType.SCOUT;
+			}
+			return RobotType.GUARD;
 		}
 	}
 	
