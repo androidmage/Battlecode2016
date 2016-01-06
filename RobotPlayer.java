@@ -9,6 +9,9 @@ public class RobotPlayer{
 	 *
 	 * $rc: the RobotController for this robot. Static so all methods can use it
 	 * $randall: our source of all randomness
+	 * $ourTeam: our Team, to save bytecodes
+	 * $opponentTeam: Opponent's (NOT ZOMBIES) team
+	 *
 	 */
 	static RobotController rc;
 	static Random randall;
@@ -189,32 +192,6 @@ public class RobotPlayer{
 			}
 			return false;
 		}
-		/*
-		 * Scan for all enemy robots
-		 * Finds enemy Archon
-		 */
-		public boolean scanArchon() {
-			RobotInfo[] robots;
-			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
-			for(int i = 0; i < robots.length; i++) {
-				if(robots[i].type == RobotType.ARCHON) {
-					return true;
-				}
-			}
-			return false;
-		}
-	}
-	
-	public MapLocation scanArchonLocation() {
-		RobotInfo[] robots;
-		robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
-		int pos = 0;
-		for(int i = 0; i < robots.length; i++) {
-			if(robots[i].type == RobotType.ARCHON) {
-				pos = i;
-			}
-		}
-		return robots[pos].location;
 	}
 
 	/**
@@ -240,6 +217,29 @@ public class RobotPlayer{
 				d = d.rotateRight();
 			}
 			return d;
+		}
+
+		/**
+		 * MapLocation scanArchonLocation
+		 *
+		 * @robots: list of all visible enemy robots
+		 * @pos: tracks position of Archon in @robots
+		 * @return MapLocation of last Archon in list if it exists, null if no Archon is seen.
+		 *
+		 */
+		public static MapLocation scanArchonLocation() {
+			RobotInfo[] robots;
+			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
+			int pos = -1;
+			for(int i = 0; i < robots.length; i++) {
+				if(robots[i].type == RobotType.ARCHON) {
+					pos = i;
+				}
+			}
+			if(pos == -1){
+				return null;
+			}
+			return robots[pos].location;
 		}
 
 		/**
@@ -399,4 +399,3 @@ public class RobotPlayer{
 		  } 
 	} 
 }
-
