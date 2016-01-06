@@ -117,16 +117,22 @@ public class RobotPlayer{
 						if(signals.length > 0){ //if == 0, no signals, so not ready
 							Tuple<Integer,Integer> approxxCoordinates = new Tuple<Integer,Integer>(0,0);
 							//averages the signal's origins
+							int counted = 0;
 							for(int i = 0; i < signals.length; i++){
-								approxxCoordinates.first += signals[i].getLocation().x;
-								approxxCoordinates.second += signals[i].getLocation().y;
+								if(signals[i].getTeam() == rc.getTeam() && rc.senseRobot(signals[i].getID()).type == RobotType.ARCHON){
+									approxxCoordinates.first += signals[i].getLocation().x;
+									approxxCoordinates.second += signals[i].getLocation().y;
+									counted++;
+								}
 							}
-							approxxCoordinates.first /= signals.length;
-							approxxCoordinates.second /= signals.length;
+							if(counted > 0){
+								approxxCoordinates.first /= counted;
+								approxxCoordinates.second /= counted;
 
-							//sets @base to this
-							base = new MapLocation((int)approxxCoordinates[0],(int)approxxCoordinates[1]);
-							rc.setIndicatorString(0,"x:" + base.x + "::y:" + base.y);
+								//sets @base to this
+								base = new MapLocation(approxxCoordinates.first,approxxCoordinates.second);
+								rc.setIndicatorString(0,"x:" + base.x + "::y:" + base.y);
+							}
 						}
 					}else{
 						//If initialized, checks to make sure it isn't losing its herd
