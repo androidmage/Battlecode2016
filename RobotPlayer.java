@@ -66,14 +66,15 @@ public class RobotPlayer{
 		public void run() {
 			while(true){
 				try{
-					if(rc.isCoreReady()){
-						RobotInfo[] robots = rc.senseNearbyRobots(1, Team.ZOMBIE);
+					if(rc.isWeaponReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots(3, Team.ZOMBIE);
 						for(RobotInfo robot: robots) {
 							if(rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
+								break;
 							}
 						}
-						rc.move(Direction.EAST);
+						//rc.move(Direction.EAST);
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -459,7 +460,7 @@ public class RobotPlayer{
 					return RobotType.SCOUT;
 				}
 			}
-			if(Math.random()*10>1) {
+			if(Math.random()*3>1) {
 				return RobotType.SCOUT;
 			}
 			return RobotType.GUARD;
