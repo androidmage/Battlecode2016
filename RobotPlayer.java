@@ -1,4 +1,4 @@
-package zobomb; //So the program knows what to call our bot
+package zombomb; //So the program knows what to call our bot
 
 import battlecode.common.*; //imports Battlecode UI
 import java.util.Random;	//Use this instead of Math.random(); seeded by the robot's id so more likely to be random than Math.random
