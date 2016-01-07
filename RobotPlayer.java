@@ -503,18 +503,38 @@ public class RobotPlayer{
 
 	/**
 	 * class FancyMessage
+	 * 
+	 * To SEND a message, prepare data (either as two (24 and 32 bit maximum size respectively) integers or boolean[] of bits (max size 56)) and pass to appropriate @sendMessage with a type and radiusSqr
+	 * To RECIEVE a message, pass the recieved signal (ONLY do with a signal from a friendly Archon/Scout) to @getFromRecievedSignal which returns a FancyMessage object, where you can access its various fields
 	 *
 	 * @senderID: the id of the robot that sent the Signal
+	 * @senderLocation: the location of the robot that sent the signal
+	 * @bits: an array of bits representing the information sent in the message
+	 * @type: the type of the message
+	 * @key: the key of the message
 	 *
 	 */
 	public static class FancyMessage{
 		public int senderID;
 		public MapLocation senderLocation;
 		public boolean[] bits;
+		public Tuple<Integer,Integer> ints;
+		private static Tuple<Integer,Integer> hiddenInts;
 		public int type;
 		public int key;
 		public FancyMessage(){
 		}
+
+		/**
+		 * FancyMessage getFromRecievedSignal
+		 *
+		 * Handles recieving of FancyMessages
+		 *
+		 * @param s: the Signal to decode
+		 * @return FancyMessage that was recieved
+		 * Also sets @key, @bits, @type, @senderID, @senderLocation, @ints
+		 *
+		 */
 		public static FancyMessage getFromRecievedSignal(Signal s){
 			FancyMessage ret = new FancyMessage();
 			ret.senderID = s.getID();
@@ -523,9 +543,27 @@ public class RobotPlayer{
 			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
 			ret.type = info.first;
 			ret.bits = info.second;
+			ret.ints = hiddenInts;
+			hiddenInts = null;
 			ret.key = (is[0] & 0b11110000) >> 4;
 			return ret;
 		}
+
+		/**
+		 * boolean sendMessage
+		 *
+		 * OVERLOADED
+		 *
+		 * handles sending of FancyMessages
+		 *
+		 * @param type: the type of message being sent (4 bits)
+		 * @param data: an array of booleans (only up to 56 elements) to be encoded
+		 * @param first,second: the two ints to be encoded (24 bit max for first, 32 for second)
+		 * @param encodeddata: for if your data is already encoded before sending
+		 * @param radiusSqr: how far to send messsage
+		 * @return true unless some sort of failure
+		 *
+		 */
 		public static boolean sendMessage(int type,boolean[] data,int radiusSqr) throws GameActionException{
 			Tuple<Integer,Integer> encoded = encrypt(type,data);
 			if(encoded == null){
@@ -541,6 +579,17 @@ public class RobotPlayer{
 			rc.broadcastMessageSignal(encodeddata.first,encodeddata.second,radiusSqr);
 			return true;
 		}
+
+		/**
+		 * Tuple<Integer,boolean[]> decrypt
+		 *
+		 * Decodes signal to FancyMessage
+		 *
+		 * @param inputs: the two ints from the message
+		 * @return Tuple containing the type of the message and the boolean[] containing its data
+		 * also sets @ints
+		 *
+		 */
 		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
 			int typeIn = inputs.first & 0b1111;
 			int keyIn = (inputs.first & 0b11110000) >> 4;
@@ -550,6 +599,7 @@ public class RobotPlayer{
 			}
 			int first = (inputs.first ^ encryptor) >> 8;
 			int second = (inputs.second ^ encryptor);
+			hiddenInts = new Tuple<Integer,Integer>(first,second);
 			boolean[] bit = new boolean[56];
 			for(int i = 0; i < 24; i++){
 				bit[i] = (first & (1 << i)) != 0;
@@ -559,6 +609,20 @@ public class RobotPlayer{
 			}
 			return new Tuple<Integer,boolean[]>(typeIn,bit);
 		}
+
+		/**
+		 * Tuple<Integer,Integer> encrypt
+		 *
+		 * OVERLOADED
+		 *
+		 * encodes data to send
+		 *
+		 * @param type: the type of message being sent
+		 * @param data: array containing bits to be sent
+		 * @param first,second: two ints to be sent (24b,32b)
+		 * @return Tuple of ints containing encoded version of parameters
+		 *
+		 */
 		public static Tuple<Integer,Integer> encrypt(int type,boolean[] data){
 			if(data.length > 56){
 				return null;
