@@ -479,6 +479,35 @@ public class RobotPlayer{
 				}
 			}
 		}
+
+		/**
+		 * MapLocation[] inSightButOffMap
+		 *
+		 * Looks at all tiles in sight range, returns all those that are off the map
+		 *
+		 * @return array of MapLocations in sight but not on the map
+		 *
+		 */
+		public static MapLocation[] inSightButOffMap(){
+			MapLocation[] allInSight = MapLocation.getAllMapLocationsWithinRadiusSq(rc.getLocation(),rc.getType.sensorRadiusSquared);
+			int numOffMap = 0;
+			for(int i = 0; i < allInSight.length; i++){
+				if(rc.onTheMap(allInSight[i])){
+					allInSight[i] = null;
+				}else{
+					numOffMap++;
+				}
+			}
+			MapLocation[] ret = new MapLocation[numOffMap];
+			int count = 0;
+			for(int i = 0; i < allInSight.length && count < ret.length; i++){
+				if(allInSight[i] != null){
+					ret[count] = allInSight[i];
+					count++;
+				}
+			}
+			return ret;
+		}
 	}
 	
 	/**
