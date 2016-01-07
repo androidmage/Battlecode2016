@@ -468,7 +468,14 @@ public class RobotPlayer{
 			}
 			return RobotType.GUARD;
 		}
-
+		
+		/**
+		 * Returns the number of robots within a given radius squared
+		 * @param type the type of robot to look for
+		 * @param radiusSqr the squared radius
+		 * @param team the team the robot should be on
+		 * @return the number of robots nearby
+		 */
 		public static int numberOfRobotsInRadius(RobotType type,int radiusSqr,Team team){
 			int count = 0;
 			RobotInfo[] robats = rc.senseNearbyRobots(radiusSqr,team);
