@@ -513,6 +513,7 @@ public class RobotPlayer{
 	 */
 	public static class FancyMessage{
 		public int senderID;
+		public MapLocation senderLocation;
 		public boolean[] bits;
 		public int type;
 		public FancyMessage(){
@@ -520,19 +521,34 @@ public class RobotPlayer{
 		public static FancyMessage getFromRecievedSignal(Signal s){
 			FancyMessage ret = new FancyMessage();
 			ret.senderID = s.getID();
+			ret.senderLocation = s.getLocation();
 			int[] is = s.getMessage();
 			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
 			ret.type = info.first;
 			ret.bits = info.second;
 			return ret;
 		}
+		public static boolean sendMessage(int type,boolean[] data,int radiusSqr) throws GameActionException{
+			Tuple<Integer,Integer> encoded = encrypt(type,data);
+			if(encoded == null){
+				return false;
+			}
+			return sendMessage(encoded,radiusSqr);
+		}
+		public static boolean sendMessage(int type,int first,int second,int radiusSqr) throws GameActionException{
+			Tuple<Integer,Integer> encoded = encrypt(type,first,second);
+			return sendMessage(encoded,radiusSqr);
+		}
+		public static boolean sendMessage(Tuple<Integer,Integer> encodeddata, int radiusSqr) throws GameActionException{
+			rc.broadcastMessageSignal(encodeddata.first,encodeddata.second,radiusSqr);
+			return true;
+		}
 		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
 			int typeIn = inputs.first & 0b1111;
 			int keyIn = inputs.first & 0b11110000;
 			int encryptor = 0;
 			for(int i = 0; i < 8; i++){
-				encryptor = encryptor << 4;
-				encryptor |= keyIn & 0b1111;
+				encryptor |= (keyIn & 0b1111) << (i * 4);
 			}
 			int first = (inputs.first ^ encryptor) >> 8;
 			int second = (inputs.second ^ encryptor);
@@ -545,5 +561,36 @@ public class RobotPlayer{
 			}
 			return new Tuple<Integer,boolean[]>(typeIn,bit);
 		}
+		public static Tuple<Integer,Integer> encrypt(int type,boolean[] data){
+			if(data.length > 56){
+				return null;
+			}
+			int first = 0;
+			int second = 0;
+			for(int i = 0; i < 24 && i < data.length; i++){
+				if(data[i]){
+					first |= (1 << i);
+				}
+			}
+			for(int i = 0; i < 32 && i + 24 < data.length; i++){
+				if(data[i + 24]){
+					second |= (1 << i);
+				}
+			}
+			return encrypt(type,first,second);
+		}
+		public static Tuple<Integer,Integer> encrypt(int type,int first,int second){
+			int key = randall.nextInt(0b10000);
+			int enc = 0;
+			for(int i = 0; i < 8; i++){
+				enc |= (key & 0b1111) << (i * 4);
+			}
+			first ^= enc;
+			second ^= enc;
+			first = first << 8;
+			first |= (key & 0b1111) << 4;
+			first |= type;
+			return new Tuple<Integer,Integer>(first,second);
+		}
 	} 
-}
+} 
