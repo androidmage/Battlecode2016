@@ -2,6 +2,7 @@ package zombomb; //So the program knows what to call our bot
 
 import battlecode.common.*; //imports Battlecode UI
 import java.util.Random;	//Use this instead of Math.random(); seeded by the robot's id so more likely to be random than Math.random
+import java.util.Arrays;
 
 public class RobotPlayer{
 	/**
@@ -115,7 +116,7 @@ public class RobotPlayer{
 						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							Clock.yield();
-							rc.broadcastMessageSignal(0,0,9);
+							FancyMessage.sendMessage(0,0b11101,31,30);
 						}
 					}
 					Clock.yield();
@@ -171,8 +172,11 @@ public class RobotPlayer{
 							int counted = 0;
 							for(int i = 0; i < signals.length; i++){
 								if(signals[i].getTeam() == rc.getTeam() && rc.senseRobot(signals[i].getID()).type == RobotType.ARCHON){
-									approxxCoordinates.first += signals[i].getLocation().x;
-									approxxCoordinates.second += signals[i].getLocation().y;
+									FancyMessage f = FancyMessage.getFromRecievedSignal(signals[i]);
+									rc.setIndicatorString(0,"Type:" + f.type + "::Key:" + f.key);
+									rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
+									approxxCoordinates.first += f.senderLocation.x;
+									approxxCoordinates.second += f.senderLocation.y;
 									counted++;
 								}
 							}
@@ -182,7 +186,7 @@ public class RobotPlayer{
 
 								//sets @base to this
 								base = new MapLocation(approxxCoordinates.first,approxxCoordinates.second);
-								rc.setIndicatorString(0,"x:" + base.x + "::y:" + base.y);
+								//rc.setIndicatorString(0,"x:" + base.x + "::y:" + base.y);
 							}
 						}
 					}else{
@@ -414,7 +418,7 @@ public class RobotPlayer{
 				}
 			}
 			//returns false if it can't move
-			rc.setIndicatorString(1,"max:none");
+			//rc.setIndicatorString(1,"max:none");
 			return false;
 		}
 		
@@ -486,6 +490,7 @@ public class RobotPlayer{
 		public MapLocation senderLocation;
 		public boolean[] bits;
 		public int type;
+		public int key;
 		public FancyMessage(){
 		}
 		public static FancyMessage getFromRecievedSignal(Signal s){
@@ -496,6 +501,7 @@ public class RobotPlayer{
 			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
 			ret.type = info.first;
 			ret.bits = info.second;
+			ret.key = (is[0] & 0b11110000) >> 4;
 			return ret;
 		}
 		public static boolean sendMessage(int type,boolean[] data,int radiusSqr) throws GameActionException{
@@ -515,7 +521,7 @@ public class RobotPlayer{
 		}
 		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
 			int typeIn = inputs.first & 0b1111;
-			int keyIn = inputs.first & 0b11110000;
+			int keyIn = (inputs.first & 0b11110000) >> 4;
 			int encryptor = 0;
 			for(int i = 0; i < 8; i++){
 				encryptor |= (keyIn & 0b1111) << (i * 4);
