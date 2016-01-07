@@ -37,14 +37,8 @@ public class RobotPlayer{
 		rc = r;
 		randall = new Random(rc.getID());
 		RobotType selftype = rc.getType();
-		if(rc.getTeam() ==Team.A) {
-			ourTeam = Team.A;
-			opponentTeam = Team.B;
-		}
-		if(rc.getTeam() == Team.B) {
-			ourTeam = Team.B;
-			opponentTeam = Team.A;
-		}
+		ourTeam = rc.getTeam();
+		opponentTeam = ourTeam.opponent();
 		if(selftype == RobotType.ARCHON){
 			Archon s = new RobotPlayer().new Archon();
 			s.run();
