@@ -479,7 +479,9 @@ public class RobotPlayer{
 			Tuple<Integer, RobotInfo[]> robs = numberOfRobotsInRadiusAndThoseRobots(RobotType.ARCHON, rc.getType().sensorRadiusSquared, opponentTeam);
 			if (robs.first > 0) {
 				for (RobotInfo rob : robs.second) {
-					enemyArchonIDs.add(rob.ID);
+					if (!enemyArchonIDs.contains(rob.ID)) {
+						enemyArchonIDs.add(rob.ID);
+					}
 				}
 			}
 		}
