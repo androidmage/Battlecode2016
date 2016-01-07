@@ -17,6 +17,7 @@ public class RobotPlayer{
 	static Random randall;
 	static Team ourTeam;
 	static Team opponentTeam;
+	static int[] zombieRounds;
 
 	/**
 	 * run
@@ -45,8 +46,43 @@ public class RobotPlayer{
 			Scout s = new RobotPlayer().new Scout();
 			s.run();
 		}
+		else if(selftype == RobotType.GUARD) {
+			Guard s = new RobotPlayer().new Guard();
+			s.run();
+		}
 	}
-
+	
+	/** class Guard
+	 * 
+	 * The class outlining our Guard bots
+	 * 
+	 * 
+	 */
+	private class Guard {
+		
+		public Guard() {
+		}
+		
+		public void run() {
+			while(true){
+				try{
+					if(rc.isWeaponReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots(3, Team.ZOMBIE);
+						for(RobotInfo robot: robots) {
+							if(rc.canAttackLocation(robot.location)) {
+								rc.attackLocation(robot.location);
+								break;
+							}
+						}
+						//rc.move(Direction.EAST);
+					}
+					Clock.yield();
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 	/**
 	 * class Archon
 	 *
@@ -60,6 +96,7 @@ public class RobotPlayer{
 		 *
 		 */
 		public Archon(){
+			zombieRounds = rc.getZombieSpawnSchedule().getRounds();
 		}
 
 		/**
@@ -74,7 +111,8 @@ public class RobotPlayer{
 				try{
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
-						if(RESOURCE_FUNCTIONS.tryBuild(RobotType.SCOUT)){ //See function in RESOURCE_FUNCTIONS to know what it does
+						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
+						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							Clock.yield();
 							rc.broadcastMessageSignal(0,0,9);
@@ -230,16 +268,12 @@ public class RobotPlayer{
 		public static MapLocation scanArchonLocation() {
 			RobotInfo[] robots;
 			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
-			int pos = -1;
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
-					pos = i;
+					return robots[i].location;
 				}
 			}
-			if(pos == -1){
-				return null;
-			}
-			return robots[pos].location;
+			return null;
 		}
 
 		/**
@@ -331,7 +365,7 @@ public class RobotPlayer{
 			}
 			
 			// create Tuple
-			Tuple<MapLocation, Double> locationAndSize = new RobotPlayer().new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
+			Tuple<MapLocation, Double> locationAndSize = new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
 			
 			return locationAndSize;
 		}
@@ -404,7 +438,7 @@ public class RobotPlayer{
 			int encryptor = 0;
 			for(int i = 0; i < 8; i++){
 				encryptor = encryptor << 4;
-				encryptor |= key & ((1 << 4) - 1);
+				encryptor |= key & 0b1111;
 			}
 			int first = (information.first ^ encryptor) << 8;
 			int second = (information.second ^ encryptor);
@@ -413,6 +447,41 @@ public class RobotPlayer{
 			rc.broadcastMessageSignal(first,second,radiusSqr);
 			return true;
 		}
+		
+		/**
+		 * RobotType chooseRobotType
+		 * @param none
+		 * @return RobotType that will be produced
+		 */
+		public static RobotType chooseRobotType() {
+			for(int i: zombieRounds){
+				int currentRound = rc.getRoundNum();
+				if(i-currentRound<=15 && i-currentRound>=0){
+					return RobotType.SCOUT;
+				}
+			}
+			if(Math.random()*3>1) {
+				return RobotType.SCOUT;
+			}
+			if(numberOfRobotsInRadius(RobotType.GUARD,3,ourTeam) == 7){
+				return RobotType.SCOUT;
+			}
+			return RobotType.GUARD;
+		}
+
+		public static int numberOfRobotsInRadius(RobotType type,int radiusSqr,Team team){
+			int count = 0;
+			RobotInfo[] robats = rc.senseNearbyRobots(radiusSqr,team);
+			if(type == null){
+				return robats.length;
+			}
+			for(int i = 0; i < robats.length; i++){
+				if(robats[i].type.equals(type)){
+					count++;
+				}
+			}
+			return count;
+		}
 	}
 	
 	/**
@@ -420,12 +489,54 @@ public class RobotPlayer{
 	 * 
 	 * a simple tuple class so that tuples can be used.
 	 */
-	public class Tuple<X, Y> { 
+	public static class Tuple<X, Y> { 
 		  public X first; 
 		  public Y second; 
 		  public Tuple(X first, Y second) { 
 		    this.first = first; 
 		    this.second = second; 
 		  } 
+	}
+
+	/**
+	 * class FancyMessage
+	 *
+	 * @senderID: the id of the robot that sent the Signal
+	 *
+	 */
+	public static class FancyMessage{
+		public int senderID;
+		public boolean[] bits;
+		public int type;
+		public FancyMessage(){
+		}
+		public static FancyMessage getFromRecievedSignal(Signal s){
+			FancyMessage ret = new FancyMessage();
+			ret.senderID = s.getID();
+			int[] is = s.getMessage();
+			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
+			ret.type = info.first;
+			ret.bits = info.second;
+			return ret;
+		}
+		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
+			int typeIn = inputs.first & 0b1111;
+			int keyIn = inputs.first & 0b11110000;
+			int encryptor = 0;
+			for(int i = 0; i < 8; i++){
+				encryptor = encryptor << 4;
+				encryptor |= keyIn & 0b1111;
+			}
+			int first = (inputs.first ^ encryptor) >> 8;
+			int second = (inputs.second ^ encryptor);
+			boolean[] bit = new boolean[56];
+			for(int i = 0; i < 24; i++){
+				bit[i] = (first & (1 << i)) != 0;
+			}
+			for(int i = 0; i < 32; i++){
+				bit[i + 24] = (second & (1 << i)) != 0;
+			}
+			return new Tuple<Integer,boolean[]>(typeIn,bit);
+		}
 	} 
 }
