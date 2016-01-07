@@ -417,36 +417,6 @@ public class RobotPlayer{
 			rc.setIndicatorString(1,"max:none");
 			return false;
 		}
-		/**
-		 * boolean trySendMessage
-		 *
-		 * Failable message sender (for use only by Archon or Scouts)
-		 *
-		 * @param information: two integers worth of data. data should start at smallest bit (that is, 1, then 2, etc). The first integer must leave 8 bits of data open for clerical reasons. The second integer may use all 32 bits, leaving a possibility of up to 56 bits of information being transmitted
-		 * @param type: only the first 4 bits will be used. Identifies the type of message being sent, so the recieving robot knows what to do with it (ie 1 is attack, 2 is defend, 3 is herd, etc)
-		 * @param key: 4 bits, used for encryption. Leave as 0 for unencrypted message. will be repeated over the 56 bits of information and XOR'd to obscure information.
-		 * @param radiusSqr: how far the message should be broadcast
-		 * @encryptor: the first 4 bits of @key repeated for all 32 bits of the integer, used to encrypt the message
-		 * @first,@second: the first and second int, respectively
-		 *
-		 * @return true if message is valid and can be sent, false otherwise
-		 * FAIL CONDITIONS: 
-		 * * None right now
-		 *
-		 */
-		public static boolean trySendMessage(Tuple<Integer,Integer> information,int type,int key,int radiusSqr) throws GameActionException{
-			int encryptor = 0;
-			for(int i = 0; i < 8; i++){
-				encryptor = encryptor << 4;
-				encryptor |= key & 0b1111;
-			}
-			int first = (information.first ^ encryptor) << 8;
-			int second = (information.second ^ encryptor);
-			first |= (key << 4);
-			first |= type;
-			rc.broadcastMessageSignal(first,second,radiusSqr);
-			return true;
-		}
 		
 		/**
 		 * RobotType chooseRobotType
@@ -513,6 +483,7 @@ public class RobotPlayer{
 	 */
 	public static class FancyMessage{
 		public int senderID;
+		public MapLocation senderLocation;
 		public boolean[] bits;
 		public int type;
 		public FancyMessage(){
@@ -520,19 +491,34 @@ public class RobotPlayer{
 		public static FancyMessage getFromRecievedSignal(Signal s){
 			FancyMessage ret = new FancyMessage();
 			ret.senderID = s.getID();
+			ret.senderLocation = s.getLocation();
 			int[] is = s.getMessage();
 			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
 			ret.type = info.first;
 			ret.bits = info.second;
 			return ret;
 		}
+		public static boolean sendMessage(int type,boolean[] data,int radiusSqr) throws GameActionException{
+			Tuple<Integer,Integer> encoded = encrypt(type,data);
+			if(encoded == null){
+				return false;
+			}
+			return sendMessage(encoded,radiusSqr);
+		}
+		public static boolean sendMessage(int type,int first,int second,int radiusSqr) throws GameActionException{
+			Tuple<Integer,Integer> encoded = encrypt(type,first,second);
+			return sendMessage(encoded,radiusSqr);
+		}
+		public static boolean sendMessage(Tuple<Integer,Integer> encodeddata, int radiusSqr) throws GameActionException{
+			rc.broadcastMessageSignal(encodeddata.first,encodeddata.second,radiusSqr);
+			return true;
+		}
 		public static Tuple<Integer,boolean[]> decrypt(Tuple<Integer,Integer> inputs){
 			int typeIn = inputs.first & 0b1111;
 			int keyIn = inputs.first & 0b11110000;
 			int encryptor = 0;
 			for(int i = 0; i < 8; i++){
-				encryptor = encryptor << 4;
-				encryptor |= keyIn & 0b1111;
+				encryptor |= (keyIn & 0b1111) << (i * 4);
 			}
 			int first = (inputs.first ^ encryptor) >> 8;
 			int second = (inputs.second ^ encryptor);
@@ -545,5 +531,36 @@ public class RobotPlayer{
 			}
 			return new Tuple<Integer,boolean[]>(typeIn,bit);
 		}
+		public static Tuple<Integer,Integer> encrypt(int type,boolean[] data){
+			if(data.length > 56){
+				return null;
+			}
+			int first = 0;
+			int second = 0;
+			for(int i = 0; i < 24 && i < data.length; i++){
+				if(data[i]){
+					first |= (1 << i);
+				}
+			}
+			for(int i = 0; i < 32 && i + 24 < data.length; i++){
+				if(data[i + 24]){
+					second |= (1 << i);
+				}
+			}
+			return encrypt(type,first,second);
+		}
+		public static Tuple<Integer,Integer> encrypt(int type,int first,int second){
+			int key = randall.nextInt(0b10000);
+			int enc = 0;
+			for(int i = 0; i < 8; i++){
+				enc |= (key & 0b1111) << (i * 4);
+			}
+			first ^= enc;
+			second ^= enc;
+			first = first << 8;
+			first |= (key & 0b1111) << 4;
+			first |= type;
+			return new Tuple<Integer,Integer>(first,second);
+		}
 	} 
-}
+} 
