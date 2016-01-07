@@ -417,36 +417,6 @@ public class RobotPlayer{
 			rc.setIndicatorString(1,"max:none");
 			return false;
 		}
-		/**
-		 * boolean trySendMessage
-		 *
-		 * Failable message sender (for use only by Archon or Scouts)
-		 *
-		 * @param information: two integers worth of data. data should start at smallest bit (that is, 1, then 2, etc). The first integer must leave 8 bits of data open for clerical reasons. The second integer may use all 32 bits, leaving a possibility of up to 56 bits of information being transmitted
-		 * @param type: only the first 4 bits will be used. Identifies the type of message being sent, so the recieving robot knows what to do with it (ie 1 is attack, 2 is defend, 3 is herd, etc)
-		 * @param key: 4 bits, used for encryption. Leave as 0 for unencrypted message. will be repeated over the 56 bits of information and XOR'd to obscure information.
-		 * @param radiusSqr: how far the message should be broadcast
-		 * @encryptor: the first 4 bits of @key repeated for all 32 bits of the integer, used to encrypt the message
-		 * @first,@second: the first and second int, respectively
-		 *
-		 * @return true if message is valid and can be sent, false otherwise
-		 * FAIL CONDITIONS: 
-		 * * None right now
-		 *
-		 */
-		public static boolean trySendMessage(Tuple<Integer,Integer> information,int type,int key,int radiusSqr) throws GameActionException{
-			int encryptor = 0;
-			for(int i = 0; i < 8; i++){
-				encryptor = encryptor << 4;
-				encryptor |= key & 0b1111;
-			}
-			int first = (information.first ^ encryptor) << 8;
-			int second = (information.second ^ encryptor);
-			first |= (key << 4);
-			first |= type;
-			rc.broadcastMessageSignal(first,second,radiusSqr);
-			return true;
-		}
 		
 		/**
 		 * RobotType chooseRobotType
