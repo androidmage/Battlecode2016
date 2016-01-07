@@ -472,6 +472,9 @@ public class RobotPlayer{
 		public static int numberOfRobotsInRadius(RobotType type,int radiusSqr,Team team){
 			int count = 0;
 			RobotInfo[] robats = rc.senseNearbyRobots(radiusSqr,team);
+			if(type == null){
+				return robats.length;
+			}
 			for(int i = 0; i < robats.length; i++){
 				if(robats[i].type.equals(type)){
 					count++;
