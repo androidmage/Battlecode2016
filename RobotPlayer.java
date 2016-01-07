@@ -3,6 +3,7 @@ package zombomb; //So the program knows what to call our bot
 import battlecode.common.*; //imports Battlecode UI
 import java.util.Random;	//Use this instead of Math.random(); seeded by the robot's id so more likely to be random than Math.random
 import java.util.Arrays;
+import java.util.Collection;
 
 public class RobotPlayer{
 	/**
@@ -13,12 +14,16 @@ public class RobotPlayer{
 	 * $ourTeam: our Team, to save bytecodes
 	 * $opponentTeam: Opponent's (NOT ZOMBIES) team
 	 *
+	 * $zombieDenLocations: locations of the zombie dens
+	 * $enemyArchonIDs: the IDs of enemy archons
 	 */
 	static RobotController rc;
 	static Random randall;
 	static Team ourTeam;
 	static Team opponentTeam;
 	static int[] zombieRounds;
+	static MapLocation[] zombieDenLocations;
+	static Collection<Integer> enemyArchonIDs;
 
 	/**
 	 * run
@@ -437,7 +442,7 @@ public class RobotPlayer{
 			if(Math.random()*3>1) {
 				return RobotType.SCOUT;
 			}
-			if(numberOfRobotsInRadius(RobotType.GUARD,3,ourTeam) == 7){
+			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
 				return RobotType.SCOUT;
 			}
 			return RobotType.GUARD;
@@ -448,20 +453,37 @@ public class RobotPlayer{
 		 * @param type the type of robot to look for
 		 * @param radiusSqr the squared radius
 		 * @param team the team the robot should be on
-		 * @return the number of robots nearby
+		 * @return a tuple containing the number of robots nearby and the array of all robots nearby
 		 */
-		public static int numberOfRobotsInRadius(RobotType type,int radiusSqr,Team team){
+		public static Tuple<Integer, RobotInfo[]> numberOfRobotsInRadiusAndThoseRobots(RobotType type,int radiusSqr,Team team){
 			int count = 0;
 			RobotInfo[] robats = rc.senseNearbyRobots(radiusSqr,team);
 			if(type == null){
-				return robats.length;
+				Tuple<Integer, RobotInfo[]> thingToReturn = new Tuple<Integer, RobotInfo[]>(robats.length, robats);
+				return thingToReturn;
 			}
 			for(int i = 0; i < robats.length; i++){
 				if(robats[i].type.equals(type)){
 					count++;
 				}
 			}
-			return count;
+			Tuple<Integer, RobotInfo[]> returnThing = new Tuple<Integer, RobotInfo[]>(count, robats);
+			return returnThing;
+		}
+		
+		/**
+		 * Collects the ID of enemy archons within sight range
+		 * adds the IDs to the static collection enemyArchonIDs
+		 */
+		public static void collectEnemyArchonID() {
+			Tuple<Integer, RobotInfo[]> robs = numberOfRobotsInRadiusAndThoseRobots(RobotType.ARCHON, rc.getType().sensorRadiusSquared, opponentTeam);
+			if (robs.first > 0) {
+				for (RobotInfo rob : robs.second) {
+					if (!enemyArchonIDs.contains(rob.ID)) {
+						enemyArchonIDs.add(rob.ID);
+					}
+				}
+			}
 		}
 	}
 	
