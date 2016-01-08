@@ -51,12 +51,61 @@ public class RobotPlayer{
 			Guard s = new RobotPlayer().new Guard();
 			s.run();
 		}
+		else if(selftype == RobotType.SOLDIER) {
+			Soldier s = new RobotPlayer().new Soldier();
+			s.run();
+		}
+	}
+	
+	/**
+	 * Class Soldier
+	 * 
+	 * The class outlining our soldier bots
+	 * 
+	 */
+	private class Soldier {
+		
+		public Soldier() {
+		}
+		
+		public void run() {
+			while(true) {
+				try {
+					// Use Guard AI (move out) until there are enough soldiers ammassed around, then go towards enemy archon and attack
+					Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							if (s.getTeam() == rc.getTeam() && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								MapLocation archonLocation = f.senderLocation;
+								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
+								Direction oppositeDirection = RESOURCE_FUNCTIONS.getOpposite(archonDirection);
+								if (rc.isCoreReady() && rc.canMove(oppositeDirection)) {
+									rc.move(oppositeDirection);
+								}
+							}
+						}
+					}
+					if(rc.isWeaponReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots();
+						for(RobotInfo robot: robots) {
+							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
+								rc.attackLocation(robot.location);
+								break;
+							}
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 
-	/** class Guard
+	/** 
+	 * Class Guard
 	 * 
 	 * The class outlining our Guard bots
-	 * 
 	 * 
 	 */
 	private class Guard {
@@ -84,9 +133,9 @@ public class RobotPlayer{
 						}
 					}
 					if(rc.isWeaponReady()){
-						RobotInfo[] robots = rc.senseNearbyRobots(3, Team.ZOMBIE);
+						RobotInfo[] robots = rc.senseNearbyRobots();
 						for(RobotInfo robot: robots) {
-							if(rc.canAttackLocation(robot.location)) {
+							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
 							}
@@ -100,6 +149,7 @@ public class RobotPlayer{
 			}
 		}
 	}
+	
 	/**
 	 * class Archon
 	 *
