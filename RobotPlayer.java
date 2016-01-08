@@ -76,7 +76,12 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if (signals.length > 0) {
 						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
 							if (s.getTeam() == ourTeam) {
+								
+							}
+							// intercept a message containing enemy archon location
+							if (s.getTeam() == opponentTeam && enemyArchonIDs.contains(s.getID())) {
 								
 							}
 							if (s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
@@ -99,6 +104,7 @@ public class RobotPlayer{
 							}
 						}
 					}
+					// If there are enough scouts around, move out
 					if (RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
 						
 					}
