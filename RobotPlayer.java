@@ -68,7 +68,12 @@ public class RobotPlayer{
 	 */
 	private class Soldier {
 		
+		public MapLocation enemyArchonLocation;
+		public boolean goOffense;
+		public int moveCount;
+		
 		public Soldier() {
+			moveCount = 0;
 		}
 		
 		public void run() {
@@ -81,23 +86,32 @@ public class RobotPlayer{
 							// receive a message containing enemy archon ID
 							if (s.getTeam() == ourTeam) {
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								
+								System.out.println(f.type);
+								if(f.type == 2){
+									System.out.println("66");
+									int xPos = f.ints.first;
+									int yPos = f.ints.second;
+									enemyArchonLocation = new MapLocation(xPos, yPos);
+									goOffense = true;
+								}
+								/*if (moveCount < 1 && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
+									MapLocation archonLocation = f.senderLocation;
+									Direction archonDirection = rc.getLocation().directionTo(archonLocation);
+									Direction oppositeDirection = archonDirection.opposite();
+									if (rc.isCoreReady() && rc.canMove(oppositeDirection)) {
+										moveCount += 1;
+										rc.move(oppositeDirection);
+									}
+								}*/
 							}
 							// intercept a message containing enemy archon location
-							if (s.getTeam() == opponentTeam && enemyArchonIDs.contains(s.getID())) {
+							/*if (s.getTeam() == opponentTeam && enemyArchonIDs.contains(s.getID())) {
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								
-							}
-							if (s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
-								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								MapLocation archonLocation = f.senderLocation;
-								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
-								Direction oppositeDirection = archonDirection.opposite();
-								if (rc.isCoreReady() && rc.canMove(oppositeDirection)) {
-									rc.move(oppositeDirection);
-								}
-							}
+							}*/
 						}
+					}
+					if(rc.isCoreReady() && goOffense){
+						RESOURCE_FUNCTIONS.BUG(enemyArchonLocation);
 					}
 					if(rc.isWeaponReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
@@ -109,9 +123,9 @@ public class RobotPlayer{
 						}
 					}
 					// If there are enough scouts around, move out towards enemy Archon
-					if (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
+					/* (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
 						RESOURCE_FUNCTIONS.BUG(RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation());
-					}
+					}*/
 					
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -153,12 +167,17 @@ public class RobotPlayer{
 					if(rc.isWeaponReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
 						for(RobotInfo robot: robots) {
-							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
+							if((robot.team == Team.ZOMBIE) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
 							}
 						}
-						//rc.move(Direction.EAST);
+						for(RobotInfo robot: robots) {
+							if((robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
+								rc.attackLocation(robot.location);
+								break;
+							}
+						}
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -250,6 +269,13 @@ public class RobotPlayer{
 		public void run(){
 			while(true){
 				try{
+					MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.scanArchonLocation();
+					if(enemyArchonLocation != null){
+						System.out.println("XXXXXXXXXXXXXXX");
+						int xPos = enemyArchonLocation.x;
+						int yPos = enemyArchonLocation.y;
+						FancyMessage.sendMessage(2, xPos, yPos, 1000);
+					}
 					//Do nothing until base-line information is gathered: ie, where are the archons. in future, archons may also give message assigning role
 					if(base == null){
 						Signal[] signals = rc.emptySignalQueue();
@@ -510,7 +536,7 @@ public class RobotPlayer{
 		public static RobotType chooseRobotType() {
 			for(int i: zombieRounds){
 				int currentRound = rc.getRoundNum();
-				if(i-currentRound<=15 && i-currentRound>=0){
+				if(i-currentRound<=60 && i-currentRound>=0){
 					return RobotType.SCOUT;
 				}
 			}
@@ -519,6 +545,10 @@ public class RobotPlayer{
 			}
 			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
 				return RobotType.SCOUT;
+			}
+			int fate = randall.nextInt(2);
+			if(fate == 1){
+				return RobotType.SOLDIER;
 			}
 			return RobotType.GUARD;
 		}
