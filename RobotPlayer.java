@@ -25,6 +25,7 @@ public class RobotPlayer{
 	static int[] zombieRounds;
 	static MapLocation[] zombieDenLocations;
 	static Collection<Integer> enemyArchonIDs;
+	static Collection<Tuple<Integer,MapLocation>> mostRecentEnemyArchonLocations;
 
 	/**
 	 * run
@@ -75,7 +76,10 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if (signals.length > 0) {
 						for (Signal s : signals) {
-							if (s.getTeam() == rc.getTeam() && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
+							if (s.getTeam() == ourTeam) {
+								
+							}
+							if (s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
@@ -95,6 +99,10 @@ public class RobotPlayer{
 							}
 						}
 					}
+					if (RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
+						
+					}
+					
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -119,7 +127,7 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
-							if(s.getTeam() == rc.getTeam() && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+							if(s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
