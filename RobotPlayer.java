@@ -522,11 +522,16 @@ public class RobotPlayer{
 		 * @return true if we move, false if we don't
 		 *
 		 */
-		public boolean BUG(MapLocation target) throws GameActionException{
+		public static boolean BUG(MapLocation target) throws GameActionException{
+			rc.setIndicatorString(1,target.toString());
 			if(!rc.isCoreReady()) return false;
 			MapLocation current = rc.getLocation();
 			Direction directionToTarget = current.directionTo(target);
-			if(rc.canMove(directionToTarget)){
+			if(rc.canMove(directionToTarget) && (Branch.last == null || !Branch.last.contains(current.add(directionToTarget)))){
+				rc.setIndicatorString(2,"Starting no branch // ");
+				rc.setIndicatorString(0,current.add(directionToTarget).toString() + " from no branch");
+				Branch.last = new ArrayList<MapLocation>();
+				Branch.last.add(current);
 				rc.move(directionToTarget);
 				Branch.lastStatus = 0;
 				if(current.add(directionToTarget).equals(target)){
@@ -534,28 +539,54 @@ public class RobotPlayer{
 				}
 				return true;
 			}else if(Branch.lastStatus == 0){
+				rc.setIndicatorString(2,"Starting choosing branch");
 				Branch decision = Branch.fork(current,target);
+				rc.setIndicatorString(1,"Made it past $fork");
 				MapLocation bestChoice = decision.bestBranch();
+				rc.setIndicatorString(1,"Made it past @bestBranch");
 				if(bestChoice != null){
+					rc.setIndicatorString(0,bestChoice.toString() + " from choosing branch");
+					Branch.last.add(current);
 					rc.move(current.directionTo(bestChoice));
 					return true;
 				}
+				rc.setIndicatorString(0,"Failed in choosing branch");
 				return false;
 			}else if(Branch.lastStatus == 1){
-				MapLocation nextChoice = (new Branch(current,target)).getRightCanditate();
+				rc.setIndicatorString(2,"Starting right branch");
+				Branch currentStep = new Branch(current,target);
+				Branch temp = Branch.getFromEarlier(currentStep);
+				if(temp != null){
+					currentStep = temp;
+				}
+				MapLocation nextChoice = currentStep.getRightCanditate();
 				if(nextChoice != null){
+					rc.setIndicatorString(0,nextChoice.toString() + " from right branch");
+					Branch.last.add(current);
 					rc.move(current.directionTo(nextChoice));
 					return true;
 				}
+				rc.setIndicatorString(0,"Failed in right branch");
 				return false;
 			}else if(Branch.lastStatus == -1){
-				MapLocation nextChoice = (new Branch(current,target)).getLeftCanditate();
+				rc.setIndicatorString(2,"Starting left branch");
+				Branch currentStep = new Branch(current,target);
+				Branch temp = Branch.getFromEarlier(currentStep);
+				if(temp != null){
+					currentStep = temp;
+
+				}
+				MapLocation nextChoice = currentStep.getLeftCanditate();
 				if(nextChoice != null){
+					rc.setIndicatorString(0,nextChoice.toString() + " from left branch");
+					Branch.last.add(current);
 					rc.move(current.directionTo(nextChoice));
 					return true;
 				}
+				rc.setIndicatorString(0,"Failed in choosing branch");
 				return false;
 			}
+			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
 		}
 	}
@@ -747,19 +778,27 @@ public class RobotPlayer{
 		private MapLocation leftCanditate;
 		private MapLocation rightCanditate;
 		private MapLocation bestCanditate;
+		public static ArrayList<MapLocation> last = new ArrayList<MapLocation>();
 		public Branch(MapLocation whereWeAre,MapLocation targe){
 			branchPoint = whereWeAre;
 			target = targe;
 		}
 		public static Branch fork(MapLocation here,MapLocation targe){
 			Branch n = new Branch(here,targe);
+			Branch e = getFromEarlier(n);
+			if(e == null){
+				return n;
+			}
+			return e;
+		}
+		public static Branch getFromEarlier(Branch n){
 			for(int i = 0; i < branchesInCurrentPath.size(); i++){
-				if(n.equals(branchesInCurrentPath.get(i))){
+				System.out.println(n.branchPoint.toString() + "::" + branchesInCurrentPath.get(i).branchPoint.toString());
+				if(n.equal(branchesInCurrentPath.get(i))){
 					return branchesInCurrentPath.get(i);
 				}
 			}
-			branchesInCurrentPath.add(n);
-			return n;
+			return null;
 		}
 		public static void resetPath(){
 			branchesInCurrentPath = new ArrayList<Branch>();
@@ -785,8 +824,7 @@ public class RobotPlayer{
 				return right;
 			}else if(right == null && left != null){
 				lastStatus = -1;
-				bestCanditate = left;
-				return left;
+				bestCanditate = left;				return left;
 			}else if(right == null && left == null){
 				return null;
 			}
@@ -840,42 +878,58 @@ public class RobotPlayer{
 		public ArrayList<MapLocation> getAllRightCanditates(){
 			ArrayList<MapLocation> base = new ArrayList<MapLocation>();
 			MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3);
-			for(int i = 0; i < options.length; i++){
-				boolean isRight = false;
-				Direction forward = branchPoint.directionTo(options[i]);
-				Direction[] rights = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 5) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 6) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 7) % 8)};
-				if(rc.senseRubble(options[i]) < 100){
-					for(int j = 0; j < rights.length && !isRight; j++){
-						if(rc.senseRubble(options[i].add(rights[j])) > 100){
-							isRight = true;
+			try{
+				for(int i = 0; i < options.length; i++){
+					boolean isRight = false;
+					Direction forward = branchPoint.directionTo(options[i]);
+					Direction[] rights = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 5) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 6) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 7) % 8)};
+					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){
+						for(int j = 0; j < rights.length && !isRight; j++){
+							if(rc.senseRubble(options[i].add(rights[j])) > 100 && !last.contains(options[i])){
+								isRight = true;
+							}
 						}
 					}
+					if(isRight){
+						base.add(options[i]);
+					}
 				}
-				if(isRight){
-					base.add(options[i]);
-				}
+			}catch(Exception e){
+				e.printStackTrace();
 			}
 			return base;
 		}
 		public ArrayList<MapLocation> getAllLeftCanditates(){
 			ArrayList<MapLocation> base = new ArrayList<MapLocation>();
-			MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3);
-			for(int i = 0; i < options.length; i++){
-				boolean isLeft = false;
-				Direction forward = branchPoint.directionTo(options[i]);
-				Direction[] lefts = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 1) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 2) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 3) % 8)};
-				if(rc.senseRubble(options[i]) < 100){
-					for(int j = 0; j < lefts.length && !isLeft; j++){
-						if(rc.senseRubble(options[i].add(lefts[j])) > 100){
-							isLeft = true;
+			try{
+				MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3);
+				for(int i = 0; i < options.length; i++){
+					boolean isLeft = false;
+					Direction forward = branchPoint.directionTo(options[i]);
+					Direction[] lefts = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 1) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 2) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 3) % 8)};
+					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){
+						for(int j = 0; j < lefts.length && !isLeft; j++){
+							if(rc.senseRubble(options[i].add(lefts[j])) > 100&& !last.contains(options[i])){
+								isLeft = true;
+							}
 						}
 					}
+					if(isLeft){
+						base.add(options[i]);
+					}
 				}
-				if(isLeft){
-					base.add(options[i]);
-				}
+			}catch(Exception e){
+				e.printStackTrace();
 			}
 			return base;
+		}
+		public boolean equal(Object other){
+			Branch o = (Branch)other;
+			System.out.println(this.branchPoint.toString() + "::" + o.branchPoint.toString());
+			if(o.branchPoint.equals(this.branchPoint)){
+				return true;
+			}
+			return false;
 		}
 	}
 } 
