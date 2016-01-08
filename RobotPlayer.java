@@ -67,6 +67,22 @@ public class RobotPlayer{
 		public void run() {
 			while(true){
 				try{
+					Signal[] signals = rc.emptySignalQueue();
+					if(signals.length > 0){ //if == 0, no signals, so not ready
+						for(Signal s: signals){
+							if(s.getTeam() == rc.getTeam() && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								MapLocation archonLocation = f.senderLocation;
+								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
+								Direction oppositeDirection = RESOURCE_FUNCTIONS.getOpposite(archonDirection);
+								if(rc.isCoreReady()){
+									if(rc.canMove(oppositeDirection)){
+										rc.move(oppositeDirection);
+									}
+								}
+							}
+						}
+					}
 					if(rc.isWeaponReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots(3, Team.ZOMBIE);
 						for(RobotInfo robot: robots) {
@@ -112,6 +128,9 @@ public class RobotPlayer{
 				try{
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
+						if(rc.getRoundNum() % 100 == 0){
+							FancyMessage.sendMessage(1, 1, 1, 3);
+						}
 						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
 						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
@@ -588,6 +607,38 @@ public class RobotPlayer{
 			}
 			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
+		}
+		
+		/**
+		 * 
+		 * MapLocation getOpposite
+		 * @param A direction
+		 * @return Returns the opposite direction of the given direction
+		 * 
+		 */
+		public static Direction getOpposite(Direction archonDirection){
+			if(archonDirection.equals(Direction.NORTH)){
+				return Direction.SOUTH;
+			}
+			if(archonDirection.equals(Direction.SOUTH)){
+				return Direction.NORTH;
+			}
+			if(archonDirection.equals(Direction.EAST)){
+				return Direction.WEST;
+			}
+			if(archonDirection.equals(Direction.WEST)){
+				return Direction.EAST;
+			}
+			if(archonDirection.equals(Direction.NORTH_EAST)){
+				return Direction.SOUTH_WEST;
+			}
+			if(archonDirection.equals(Direction.NORTH_WEST)){
+				return Direction.SOUTH_EAST;
+			}
+			if(archonDirection.equals(Direction.SOUTH_EAST)){
+				return Direction.NORTH_WEST;
+			}
+			return Direction.NORTH_EAST;
 		}
 	}
 	
