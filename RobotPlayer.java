@@ -25,7 +25,8 @@ public class RobotPlayer{
 	static int[] zombieRounds;
 	static MapLocation[] zombieDenLocations;
 	static Collection<Integer> enemyArchonIDs;
-	static Collection<Tuple<Integer,MapLocation>> mostRecentEnemyArchonLocations;
+	// Collection of <Archon ID, Archon Location, Round that measurement was taken>
+	static Collection<Triple<Integer,MapLocation,Integer>> mostRecentEnemyArchonLocations;
 
 	/**
 	 * run
@@ -78,10 +79,12 @@ public class RobotPlayer{
 						for (Signal s : signals) {
 							// receive a message containing enemy archon ID
 							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								
 							}
 							// intercept a message containing enemy archon location
 							if (s.getTeam() == opponentTeam && enemyArchonIDs.contains(s.getID())) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								
 							}
 							if (s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
@@ -104,9 +107,9 @@ public class RobotPlayer{
 							}
 						}
 					}
-					// If there are enough scouts around, move out
-					if (RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
-						
+					// If there are enough scouts around, move out towards enemy Archon
+					if (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
+						RESOURCE_FUNCTIONS.BUG(RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation());
 					}
 					
 				} catch (Exception e) {
@@ -562,6 +565,21 @@ public class RobotPlayer{
 					}
 				}
 			}
+		}
+		
+		/**
+		 * Get most recent enemy archon location
+		 */
+		public static MapLocation mostRecentEnemyArchonLocation() {
+			MapLocation latestArchonLocation = new MapLocation(0,0);
+			int latestRound = 0;
+			for (Triple<Integer, MapLocation, Integer> trip : mostRecentEnemyArchonLocations) {
+				if (trip.third > latestRound) {
+					latestRound = trip.third;
+					latestArchonLocation = trip.second;
+				}
+			}
+			return latestArchonLocation;
 		}
 
 		/**
