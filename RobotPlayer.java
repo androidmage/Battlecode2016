@@ -25,6 +25,8 @@ public class RobotPlayer{
 	static int[] zombieRounds;
 	static MapLocation[] zombieDenLocations;
 	static Collection<Integer> enemyArchonIDs;
+	// Collection of <Archon ID, Archon Location, Round that measurement was taken>
+	static Collection<Triple<Integer,MapLocation,Integer>> mostRecentEnemyArchonLocations;
 
 	/**
 	 * run
@@ -51,26 +53,90 @@ public class RobotPlayer{
 			Guard s = new RobotPlayer().new Guard();
 			s.run();
 		}
+		else if(selftype == RobotType.SOLDIER) {
+			Soldier s = new RobotPlayer().new Soldier();
+			s.run();
+		}
 	}
 	
-	/** class Guard
+	/**
+	 * Class Soldier
+	 * 
+	 * The class outlining our soldier bots
+	 * 
+	 */
+	private class Soldier {
+		
+		public Soldier() {
+		}
+		
+		public void run() {
+			while(true) {
+				try {
+					// Use Guard AI (move out) until there are enough soldiers ammassed around, then go towards enemy archon and attack
+					Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
+							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								
+							}
+							// intercept a message containing enemy archon location
+							if (s.getTeam() == opponentTeam && enemyArchonIDs.contains(s.getID())) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								
+							}
+							if (s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								MapLocation archonLocation = f.senderLocation;
+								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
+								Direction oppositeDirection = RESOURCE_FUNCTIONS.getOpposite(archonDirection);
+								if (rc.isCoreReady() && rc.canMove(oppositeDirection)) {
+									rc.move(oppositeDirection);
+								}
+							}
+						}
+					}
+					if(rc.isWeaponReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots();
+						for(RobotInfo robot: robots) {
+							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
+								rc.attackLocation(robot.location);
+								break;
+							}
+						}
+					}
+					// If there are enough scouts around, move out towards enemy Archon
+					if (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
+						RESOURCE_FUNCTIONS.BUG(RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation());
+					}
+					
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/** 
+	 * Class Guard
 	 * 
 	 * The class outlining our Guard bots
 	 * 
-	 * 
 	 */
 	private class Guard {
-		
+
 		public Guard() {
 		}
-		
+
 		public void run() {
 			while(true){
 				try{
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
-							if(s.getTeam() == rc.getTeam() && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+							if(s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
@@ -84,9 +150,9 @@ public class RobotPlayer{
 						}
 					}
 					if(rc.isWeaponReady()){
-						RobotInfo[] robots = rc.senseNearbyRobots(3, Team.ZOMBIE);
+						RobotInfo[] robots = rc.senseNearbyRobots();
 						for(RobotInfo robot: robots) {
-							if(rc.canAttackLocation(robot.location)) {
+							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
 							}
@@ -100,6 +166,7 @@ public class RobotPlayer{
 			}
 		}
 	}
+	
 	/**
 	 * class Archon
 	 *
@@ -218,7 +285,7 @@ public class RobotPlayer{
 									last = temp;
 								}
 							}
-						//Otherwise, moves back to where it last was to try to regain them
+							//Otherwise, moves back to where it last was to try to regain them
 						}else if(last != null){
 							if(rc.isCoreReady()){
 								if(rc.canMove(rc.getLocation().directionTo(last))){
@@ -345,7 +412,7 @@ public class RobotPlayer{
 			}
 			return false;
 		}
-		
+
 		/**
 		 * boolean tryAttackLocation
 		 * 
@@ -362,7 +429,7 @@ public class RobotPlayer{
 			}
 			return canAttack;
 		}
-		
+
 		/**
 		 * MapLocation findLargestPileOfParts
 		 * 
@@ -375,7 +442,7 @@ public class RobotPlayer{
 			MapLocation myLocation = rc.getLocation();
 			int sensingRadiusSquared = rc.getType().sensorRadiusSquared;
 			MapLocation[] visibleLocations = MapLocation.getAllMapLocationsWithinRadiusSq(myLocation, sensingRadiusSquared);
-			
+
 			// find the largest pile of parts
 			double maxPileSize = 0;
 			MapLocation maxPileLocation = myLocation;
@@ -386,10 +453,10 @@ public class RobotPlayer{
 					maxPileLocation = loc;
 				}
 			}
-			
+
 			// create Tuple
 			Tuple<MapLocation, Double> locationAndSize = new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
-			
+
 			return locationAndSize;
 		}
 
@@ -440,7 +507,7 @@ public class RobotPlayer{
 			//rc.setIndicatorString(1,"max:none");
 			return false;
 		}
-		
+
 		/**
 		 * RobotType chooseRobotType
 		 * @param none
@@ -461,7 +528,7 @@ public class RobotPlayer{
 			}
 			return RobotType.GUARD;
 		}
-		
+
 		/**
 		 * Returns the number of robots within a given radius squared
 		 * @param type the type of robot to look for
@@ -484,7 +551,7 @@ public class RobotPlayer{
 			Tuple<Integer, RobotInfo[]> returnThing = new Tuple<Integer, RobotInfo[]>(count, robats);
 			return returnThing;
 		}
-		
+
 		/**
 		 * Collects the ID of enemy archons within sight range
 		 * adds the IDs to the static collection enemyArchonIDs
@@ -498,6 +565,21 @@ public class RobotPlayer{
 					}
 				}
 			}
+		}
+		
+		/**
+		 * Get most recent enemy archon location
+		 */
+		public static MapLocation mostRecentEnemyArchonLocation() {
+			MapLocation latestArchonLocation = new MapLocation(0,0);
+			int latestRound = 0;
+			for (Triple<Integer, MapLocation, Integer> trip : mostRecentEnemyArchonLocations) {
+				if (trip.third > latestRound) {
+					latestRound = trip.third;
+					latestArchonLocation = trip.second;
+				}
+			}
+			return latestArchonLocation;
 		}
 
 		/**
@@ -608,7 +690,7 @@ public class RobotPlayer{
 			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
 		}
-		
+
 		/**
 		 * 
 		 * MapLocation getOpposite
@@ -641,19 +723,35 @@ public class RobotPlayer{
 			return Direction.NORTH_EAST;
 		}
 	}
-	
+
 	/**
 	 * Tuple
 	 * 
 	 * a simple tuple class so that tuples can be used.
 	 */
 	public static class Tuple<X, Y> { 
-		  public X first; 
-		  public Y second; 
-		  public Tuple(X first, Y second) { 
-		    this.first = first; 
-		    this.second = second; 
-		  } 
+		public X first; 
+		public Y second; 
+		public Tuple(X first, Y second) { 
+			this.first = first; 
+			this.second = second; 
+		} 
+	}
+	
+	/**
+	 * Triple
+	 * 
+	 * a simple triple class so that triples can be used.
+	 */
+	public static class Triple<X, Y, Z> {
+		public X first;
+		public Y second;
+		public Z third;
+		public Triple(X first, Y second, Z third) {
+			this.first = first;
+			this.second = second;
+			this.third = third;
+		}
 	}
 
 	/**
@@ -753,16 +851,16 @@ public class RobotPlayer{
 				encryptor |= (keyIn & 0b1111) << (i * 4);
 			}
 			int first = (inputs.first ^ encryptor) >> 8;
-			int second = (inputs.second ^ encryptor);
-			hiddenInts = new Tuple<Integer,Integer>(first,second);
-			boolean[] bit = new boolean[56];
-			for(int i = 0; i < 24; i++){
-				bit[i] = (first & (1 << i)) != 0;
-			}
-			for(int i = 0; i < 32; i++){
-				bit[i + 24] = (second & (1 << i)) != 0;
-			}
-			return new Tuple<Integer,boolean[]>(typeIn,bit);
+				int second = (inputs.second ^ encryptor);
+				hiddenInts = new Tuple<Integer,Integer>(first,second);
+				boolean[] bit = new boolean[56];
+				for(int i = 0; i < 24; i++){
+					bit[i] = (first & (1 << i)) != 0;
+				}
+				for(int i = 0; i < 32; i++){
+					bit[i + 24] = (second & (1 << i)) != 0;
+				}
+				return new Tuple<Integer,boolean[]>(typeIn,bit);
 		}
 
 		/**
