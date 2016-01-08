@@ -27,6 +27,7 @@ public class RobotPlayer{
 	static Collection<Integer> enemyArchonIDs;
 	// Collection of <Archon ID, Archon Location, Round that measurement was taken>
 	static Collection<Triple<Integer,MapLocation,Integer>> mostRecentEnemyArchonLocations;
+	static Direction[] DIRECTIONS = new Direction[]{Direction.NORTH,Direction.NORTH_EAST,Direction.EAST,Direction.SOUTH_EAST,Direction.SOUTH,Direction.SOUTH_WEST,Direction.WEST,Direction.NORTH_WEST};
 
 	/**
 	 * run
@@ -91,7 +92,7 @@ public class RobotPlayer{
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
-								Direction oppositeDirection = RESOURCE_FUNCTIONS.getOpposite(archonDirection);
+								Direction oppositeDirection = archonDirection.opposite();
 								if (rc.isCoreReady() && rc.canMove(oppositeDirection)) {
 									rc.move(oppositeDirection);
 								}
@@ -140,7 +141,7 @@ public class RobotPlayer{
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
-								Direction oppositeDirection = RESOURCE_FUNCTIONS.getOpposite(archonDirection);
+								Direction oppositeDirection = archonDirection.opposite();
 								if(rc.isCoreReady()){
 									if(rc.canMove(oppositeDirection)){
 										rc.move(oppositeDirection);
@@ -340,11 +341,7 @@ public class RobotPlayer{
 		 *
 		 */
 		public static Direction intToDir(int i){
-			Direction d = Direction.NORTH;
-			for(int j = 0; j < i; j++){
-				d = d.rotateRight();
-			}
-			return d;
+			return DIRECTIONS[(i + 8) % 8];
 		}
 
 		/**
@@ -376,15 +373,12 @@ public class RobotPlayer{
 		 *
 		 */
 		public static int dirToInt(Direction d){
-			if(d.equals(Direction.NONE)){
-				return -1;
+			for(int i = 0; i < DIRECTIONS.length; i++){
+				if(d.equals(DIRECTIONS[i])){
+					return i;
+				}
 			}
-			int i = 0;
-			while(!d.equals(Direction.NORTH)){
-				d = d.rotateLeft();
-				i++;
-			}
-			return i;
+			return 0;
 		}
 
 		/**
@@ -689,38 +683,6 @@ public class RobotPlayer{
 			}
 			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
-		}
-
-		/**
-		 * 
-		 * MapLocation getOpposite
-		 * @param A direction
-		 * @return Returns the opposite direction of the given direction
-		 * 
-		 */
-		public static Direction getOpposite(Direction archonDirection){
-			if(archonDirection.equals(Direction.NORTH)){
-				return Direction.SOUTH;
-			}
-			if(archonDirection.equals(Direction.SOUTH)){
-				return Direction.NORTH;
-			}
-			if(archonDirection.equals(Direction.EAST)){
-				return Direction.WEST;
-			}
-			if(archonDirection.equals(Direction.WEST)){
-				return Direction.EAST;
-			}
-			if(archonDirection.equals(Direction.NORTH_EAST)){
-				return Direction.SOUTH_WEST;
-			}
-			if(archonDirection.equals(Direction.NORTH_WEST)){
-				return Direction.SOUTH_EAST;
-			}
-			if(archonDirection.equals(Direction.SOUTH_EAST)){
-				return Direction.NORTH_WEST;
-			}
-			return Direction.NORTH_EAST;
 		}
 	}
 
