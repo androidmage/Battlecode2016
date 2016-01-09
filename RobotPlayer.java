@@ -141,8 +141,11 @@ public class RobotPlayer{
 	 * 
 	 */
 	private class Guard {
+		
+		public MapLocation startLocation;
 
 		public Guard() {
+			startLocation = rc.getLocation();
 		}
 
 		public void run() {
@@ -176,6 +179,28 @@ public class RobotPlayer{
 							if((robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
+							}
+						}
+						//If didn't attack anyone that is adjacent
+						if(rc.isWeaponReady()){
+							MapLocation target = null;
+							for(RobotInfo robot: robots) {
+								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(startLocation) < 25) {
+									target = robot.location;
+									break;
+								}
+							}
+							for(RobotInfo robot: robots) {
+								if((robot.team == opponentTeam) && robot.location.distanceSquaredTo(startLocation) < 25) {
+									System.out.println("pikachu");
+									target = robot.location;
+									break;
+								}
+							}
+							if(target != null){
+								System.out.println("target found");
+								RESOURCE_FUNCTIONS.BUG(target);
+								System.out.println("Still alive");
 							}
 						}
 					}
