@@ -141,8 +141,11 @@ public class RobotPlayer{
 	 * 
 	 */
 	private class Guard {
+		
+		public MapLocation startLocation;
 
 		public Guard() {
+			startLocation = rc.getLocation();
 		}
 
 		public void run() {
@@ -176,6 +179,28 @@ public class RobotPlayer{
 							if((robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
+							}
+						}
+						//If didn't attack anyone that is adjacent
+						if(rc.isWeaponReady()){
+							MapLocation target = null;
+							for(RobotInfo robot: robots) {
+								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(startLocation) < 25) {
+									target = robot.location;
+									break;
+								}
+							}
+							for(RobotInfo robot: robots) {
+								if((robot.team == opponentTeam) && robot.location.distanceSquaredTo(startLocation) < 25) {
+									System.out.println("pikachu");
+									target = robot.location;
+									break;
+								}
+							}
+							if(target != null){
+								System.out.println("target found");
+								RESOURCE_FUNCTIONS.BUG(target);
+								System.out.println("Still alive");
 							}
 						}
 					}
@@ -287,7 +312,7 @@ public class RobotPlayer{
 								if(signals[i].getTeam() == rc.getTeam() && rc.senseRobot(signals[i].getID()).type == RobotType.ARCHON){
 									FancyMessage f = FancyMessage.getFromRecievedSignal(signals[i]);
 									rc.setIndicatorString(0,"Type:" + f.type + "::Key:" + f.key);
-									rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
+									//rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
 									approxxCoordinates.first += f.senderLocation.x;
 									approxxCoordinates.second += f.senderLocation.y;
 									counted++;
@@ -341,8 +366,15 @@ public class RobotPlayer{
 		 */
 		public boolean stillHerding(){
 			RobotInfo[] zombos = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared,Team.ZOMBIE);
-			if(zombos.length >= 3 || zombos.length >= disciples){
-				disciples = zombos.length;
+			int count = 0;
+			for(int i = 0; i < zombos.length; i++){
+				if(zombos[i].type != RobotType.ZOMBIEDEN){
+					count++;
+				}
+			}
+			rc.setIndicatorString(1,"disciples:" + disciples + "::count:" + count + "::zombos.length" + zombos.length);
+			if(count >= 3 || count >= disciples){
+				disciples = count;
 				return true;
 			}
 			return false;
@@ -536,7 +568,7 @@ public class RobotPlayer{
 		public static RobotType chooseRobotType() {
 			for(int i: zombieRounds){
 				int currentRound = rc.getRoundNum();
-				if(i-currentRound<=60 && i-currentRound>=0){
+				if(i-currentRound<=40 && i-currentRound>=0){
 					return RobotType.SCOUT;
 				}
 			}
