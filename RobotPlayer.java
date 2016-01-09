@@ -312,7 +312,7 @@ public class RobotPlayer{
 								if(signals[i].getTeam() == rc.getTeam() && rc.senseRobot(signals[i].getID()).type == RobotType.ARCHON){
 									FancyMessage f = FancyMessage.getFromRecievedSignal(signals[i]);
 									rc.setIndicatorString(0,"Type:" + f.type + "::Key:" + f.key);
-									rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
+									//rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
 									approxxCoordinates.first += f.senderLocation.x;
 									approxxCoordinates.second += f.senderLocation.y;
 									counted++;
@@ -368,10 +368,11 @@ public class RobotPlayer{
 			RobotInfo[] zombos = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared,Team.ZOMBIE);
 			int count = 0;
 			for(int i = 0; i < zombos.length; i++){
-				if(zombos[i].type == RobotType.ZOMBIEDEN){
+				if(zombos[i].type != RobotType.ZOMBIEDEN){
 					count++;
 				}
 			}
+			rc.setIndicatorString(1,"disciples:" + disciples + "::count:" + count + "::zombos.length" + zombos.length);
 			if(count >= 3 || count >= disciples){
 				disciples = count;
 				return true;
@@ -567,7 +568,7 @@ public class RobotPlayer{
 		public static RobotType chooseRobotType() {
 			for(int i: zombieRounds){
 				int currentRound = rc.getRoundNum();
-				if(i-currentRound<=60 && i-currentRound>=0){
+				if(i-currentRound<=40 && i-currentRound>=0){
 					return RobotType.SCOUT;
 				}
 			}
