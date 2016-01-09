@@ -936,26 +936,56 @@ public class RobotPlayer{
 	/**
 	 * class Branch
 	 *
-	 * Represents a branch in the BUG pathfinding
+	 * Represents a branch in the BUG pathfinding algorithm
 	 *
-	 * 
+	 * @branchPoint: The location the branch occurs at
+	 * @branchedLeft: If this branch has already occured && went left
+	 * @branchedRight: Like @branchedLeft, but to the right
+	 * @target: Where we are trying to get
+	 * @leftCanditate: The best choice for branching left, for lazy eval purposes
+	 * @rightCanditate: Like left canditate, but to the right
+	 * @bestCanditate: the choice between @leftCanditate and @rightCanditate that is closer to @target
+	 * $branchesInCurrentPath: All branches that have been visited while going towards current @target
+	 * $lastStatus: On the last move judged, whether we were on a left branch (-1), right branch (+1), or no branch (0)
+	 * $last: all MapLocations that have been visited since last change in branch type, so we don't backtrack
 	 *
 	 */
 	public static class Branch{
 		public MapLocation branchPoint;
 		public boolean branchedLeft = false,branchedRight = false;
 		public MapLocation target;
-		public static ArrayList<Branch> branchesInCurrentPath = new ArrayList<Branch>();
-		public static int lastStatus = 0;
-		public Direction lastDirection = null;
 		private MapLocation leftCanditate;
 		private MapLocation rightCanditate;
 		private MapLocation bestCanditate;
+		public static ArrayList<Branch> branchesInCurrentPath = new ArrayList<Branch>();
+		public static int lastStatus = 0;
 		public static ArrayList<MapLocation> last = new ArrayList<MapLocation>();
+
+		/**
+		 * Constructor
+		 *
+		 * @param whereWeAre: current location -> @branchPoint
+		 * @param targe: target location -> @target
+		 *
+		 */
 		public Branch(MapLocation whereWeAre,MapLocation targe){
 			branchPoint = whereWeAre;
 			target = targe;
 		}
+
+		/**
+		 * Branch fork
+		 *
+		 * handles creating new Branch for a point, and returning an old branch if we have visited it before
+		 *
+		 * @param here: current location
+		 * @param targe: target location
+		 * @n: new Branch for this spot
+		 * @e: if there was an old branch that matches this one, this is it
+		 *
+		 * @return the new Branch if we haven't visited it before, the old one if we have
+		 *
+		 */
 		public static Branch fork(MapLocation here,MapLocation targe){
 			Branch n = new Branch(here,targe);
 			Branch e = getFromEarlier(n);
@@ -964,62 +994,110 @@ public class RobotPlayer{
 			}
 			return e;
 		}
+
+		/**
+		 * Branch getFromEarlier
+		 *
+		 * if there is an older Branch that describes this location, we want that instead
+		 * 
+		 * @param n: the potential new Branch
+		 * 
+		 * @return the first element in $branchesInCurrentPath that .equal(n), null if it doesn't exist
+		 *
+		 */
 		public static Branch getFromEarlier(Branch n){
 			for(int i = 0; i < branchesInCurrentPath.size(); i++){
-				System.out.println(n.branchPoint.toString() + "::" + branchesInCurrentPath.get(i).branchPoint.toString());
 				if(n.equal(branchesInCurrentPath.get(i))){
 					return branchesInCurrentPath.get(i);
 				}
 			}
 			return null;
 		}
+
+		/**
+		 * resetPath
+		 *
+		 * resets all static members
+		 *
+		 */
 		public static void resetPath(){
 			branchesInCurrentPath = new ArrayList<Branch>();
+			last = new ArrayList<MapLocation>();
+			lastStatus = 0;
 		}
+
+		/**
+		 * MapLocation bestBranch
+		 *
+		 * chooses the best place to branch out to
+		 * 
+		 * @return the closest MapLocation to @target in the best direction to go, based on stuff
+		 *
+		 */
 		public MapLocation bestBranch(){
-			if(branchedLeft && !branchedRight){
+			if(branchedLeft && !branchedRight){ //If we have already branched left, and returned here, but haven't gone right, we'll try branching right
 				lastStatus = 1;
+				branchedRight = true; //document that we went right
 				return getRightCanditate();
 			}
-			if(branchedRight && !branchedLeft){
+			if(branchedRight && !branchedLeft){ //Similarly, if we've branched right and not left, try left
 				lastStatus = -1;
+				branchedLeft = true; // document that we went left
 				return getLeftCanditate();
 			}
-			if(bestCanditate != null){
-				lastStatus = bestCanditate.equals(leftCanditate) ? -1 : 1 ;
+			if(bestCanditate != null){ //If we've tried both, try what we originally thought was best
+				lastStatus = bestCanditate.equals(leftCanditate) ? -1 : 1 ; //If it's left, set $lastStatus to -1, otherwise to +1
 				return bestCanditate;
 			}
-			MapLocation left = getLeftCanditate();
-			MapLocation right = getRightCanditate();
-			if(left == null && right != null){
+			MapLocation left = getLeftCanditate(); //gets the best option on left branch
+			MapLocation right = getRightCanditate(); //gets the best option on the right branch
+			if(left == null && right != null){ //if no left options, but yes right options, then obvs go right
 				lastStatus = 1;
-				bestCanditate = right;
+				branchedRight = true; //document that we went right
+				branchedLeft = true; //also document that we "went left" so we don't try in the future
+				bestCanditate = right; //remember this as our best canditate
 				return right;
-			}else if(right == null && left != null){
+			}else if(right == null && left != null){ //if no right options, but left, go left
 				lastStatus = -1;
-				bestCanditate = left;				return left;
+				branchedLeft = true; //document that we went left
+				branchedRight = true; //document that we "went right" so we don't try in the future
+				bestCanditate = left; //remember this as best canditate
+				return left;
 			}else if(right == null && left == null){
-				return null;
+				return null; //if no options, we can't do shit
 			}
-			if(left.distanceSquaredTo(target) < right.distanceSquaredTo(target)){
+			if(left.distanceSquaredTo(target) < right.distanceSquaredTo(target)){ //if left option is closer to @target, go left
 				lastStatus = -1;
-				bestCanditate = left;
+				branchedLeft = true; //document that we went left
+				bestCanditate = left; //remember this as best canditate
 				return left;
 			}
-			lastStatus = 1;
-			bestCanditate = right;
+			lastStatus = 1; //otherwise go right
+			branchedRight = true; //document that we went right
+			bestCanditate = right; //remember this as best canditate
 			return right;
 		}
+
+		/**
+		 * MapLocation getLeftCanditate
+		 *
+		 * gets the best MapLocation to move to in left branch
+		 *
+		 * Lazy evaluates: if we've done it before, doesn't do it again.
+		 * 
+		 * @return the MapLocation in the left branch whose distance to @target is smallest
+		 *
+		 */
 		public MapLocation getLeftCanditate(){
-			if(leftCanditate != null){
+			if(leftCanditate != null){ //if we've done this already, skip, because it can be costly
 				return leftCanditate;
 			}
-			ArrayList<MapLocation> lefts = getAllLeftCanditates();
-			if(lefts.size() == 0){
+			ArrayList<MapLocation> lefts = getAllLeftCanditates(); //gets all possibilities
+			if(lefts.size() == 0){ //if no possibilities, return null
 				return null;
 			}
 			int min = 0;
-			int accmin = lefts.get(0).distanceSquaredTo(target);
+			int accmin = lefts.get(0).distanceSquaredTo(target); //searches for shortest distance element (O(n) time)
 			for(int i = 1; i < lefts.size(); i++){
 				int newMin = lefts.get(i).distanceSquaredTo(target);
 				if(accmin > newMin){
@@ -1027,18 +1105,29 @@ public class RobotPlayer{
 					accmin = newMin;
 				}
 			}
-			return lefts.get(min);
+			return lefts.get(min); //returns shortest distance element
 		}
+
+		/**
+		 * MapLocation getRightCanditate
+		 *
+		 * gets the best MapLocation to move to in right branch
+		 *
+		 * Lazy evaluates: if we've done it before, doesn't do it again.
+		 * 
+		 * @return the MapLocation in the right branch whose distance to @target is smallest
+		 *
+		 */
 		public MapLocation getRightCanditate(){
-			if(rightCanditate != null){
+			if(rightCanditate != null){ //if we've done this already, skip, because it can be costly
 				return rightCanditate;
 			}
-			ArrayList<MapLocation> rights = getAllRightCanditates();
-			if(rights.size() == 0){
+			ArrayList<MapLocation> rights = getAllRightCanditates(); //gets all possibilities
+			if(rights.size() == 0){ //if no possibilities, return null
 				return null;
 			}
 			int min = 0;
-			int accmin = rights.get(0).distanceSquaredTo(target);
+			int accmin = rights.get(0).distanceSquaredTo(target); //searches for shortest distance element (O(n) time)
 			for(int i = 1; i < rights.size(); i++){
 				int newMin = rights.get(i).distanceSquaredTo(target);
 				if(accmin > newMin){
@@ -1046,63 +1135,99 @@ public class RobotPlayer{
 					accmin = newMin;
 				}
 			}
-			return rights.get(min);
+			return rights.get(min); //returns shortest distance element
 		}
+
+		/**
+		 * ArrayList<MapLocation> getAllRightCanditates
+		 *
+		 * gets all possibilities in right branch (where wall is on left: named bc you turn right)
+		 *
+		 * @return all MapLocations adjacent to @branchPoint which are traversable (rubble<100) and have an intraversable tile (wall, rubble > 100) on the "left"
+		 *
+		 */
 		public ArrayList<MapLocation> getAllRightCanditates(){
 			ArrayList<MapLocation> base = new ArrayList<MapLocation>();
-			MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3);
+			MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3); //all squares adjacent to @branchPoint, including @branchPoint, bc it's less expensive than manually finding them
 			try{
-				for(int i = 0; i < options.length; i++){
-					boolean isRight = false;
-					Direction forward = branchPoint.directionTo(options[i]);
-					Direction[] rights = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 5) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 6) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 7) % 8)};
-					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){
-						for(int j = 0; j < rights.length && !isRight; j++){
-							if(rc.senseRubble(options[i].add(rights[j])) > 100 && !last.contains(options[i])){
+				//Most computation is here
+				for(int i = 0; i < options.length; i++){ //Loop through all of @options
+					boolean isRight = false; //assume it's not a right branch piece
+					Direction forward = branchPoint.directionTo(options[i]); //what we consider "forward"
+					int forwardInt = RESOURCE_FUNCTIONS.dirToInt(forward); //Only perform this once, for optimization
+					//Next line is long. Gets an array of all directions considered "left" relative to @forward
+					Direction[] rights = new Direction[]{RESOURCE_FUNCTIONS.intToDir((forwardInt + 5) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 6) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 7) % 8)};
+					if(!branchPoint.equals(options[i]) && rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i])){ //checks this option to be: not current position, traversable, and on the map
+						for(int j = 0; j < rights.length && !isRight; j++){ //as long as we're not sure it's right, loop through "left" directions and see if any are walls (rubble > 100)
+							if(rc.senseRubble(options[i].add(rights[j])) > 100 && !last.contains(options[i])){ //right only if we haven't visited it recently, and there is rubble > 100 on "left"
 								isRight = true;
 							}
 						}
 					}
 					if(isRight){
-						base.add(options[i]);
+						base.add(options[i]); //if we decided it was right, add it
 					}
 				}
-			}catch(Exception e){
+			}catch(Exception e){ //incase rc.senseRubble fails
 				e.printStackTrace();
 			}
-			return base;
+			return base; //return that list!!
 		}
+
+		/**
+		 * ArrayList<MapLocation> getAllLeftCanditates
+		 *
+		 * gets all possibilities in left branch (where wall is on right: named bc you turn left)
+		 *
+		 * @return all MapLocations adjacent to @branchPoint which are traversable (rubble<100) and have an intraversable tile (wall, rubble > 100) on the "right"
+		 *
+		 */
 		public ArrayList<MapLocation> getAllLeftCanditates(){
 			ArrayList<MapLocation> base = new ArrayList<MapLocation>();
+			MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3); //all squares adjacent to @branchPoint, including @branchPoint, bc it's less expensive than manually finding them
 			try{
-				MapLocation[] options = MapLocation.getAllMapLocationsWithinRadiusSq(branchPoint,3);
-				for(int i = 0; i < options.length; i++){
-					boolean isLeft = false;
-					Direction forward = branchPoint.directionTo(options[i]);
-					Direction[] lefts = new Direction[]{RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 1) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 2) % 8),RESOURCE_FUNCTIONS.intToDir((RESOURCE_FUNCTIONS.dirToInt(forward) + 3) % 8)};
-					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){
-						for(int j = 0; j < lefts.length && !isLeft; j++){
-							if(rc.senseRubble(options[i].add(lefts[j])) > 100&& !last.contains(options[i])){
+				//Most computation is here
+				for(int i = 0; i < options.length; i++){ //Loop through all of @options
+					boolean isLeft = false; //assume it's not a left branch piece
+					Direction forward = branchPoint.directionTo(options[i]); //what we consider "forward"
+					int forwardInt = RESOURCE_FUNCTIONS.dirToInt(forward); //Only perform this once, for optimization
+					//Next line is long. Gets an array of all directions considered "right" relative to @forward
+					Direction[] lefts = new Direction[]{RESOURCE_FUNCTIONS.intToDir((forwardInt + 1) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 2) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 3) % 8)};
+					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){ //checks this option to be: not current position, traversable, and on the map
+						for(int j = 0; j < lefts.length && !isLeft; j++){ //as long as we're not sure it's left, loop through "right" directions and see if any are walls (rubble > 100)
+							if(rc.senseRubble(options[i].add(lefts[j])) > 100&& !last.contains(options[i])){ //left only if we haven't visited it recently, and there is rubble > 100 on "right"
 								isLeft = true;
 							}
 						}
 					}
 					if(isLeft){
-						base.add(options[i]);
+						base.add(options[i]); //if we decided it was left, add it
 					}
 				}
-			}catch(Exception e){
+			}catch(Exception e){ //incase rc.senseRubble fails
 				e.printStackTrace();
 			}
-			return base;
+			return base; //return that list!!
 		}
+
+		/**
+		 * boolean equal
+		 *
+		 * checks if two objects (preferably two Branches) are equal
+		 * NOT .equals!!! i would override, but it gave me an angry message about not overriding hashCode, so i went with .equal
+		 * judges equality based on @branchPoint
+		 *
+		 * @param other: object to compare to
+		 *
+		 * @return if this Branch is at the same location as @other
+		 *
+		 */
 		public boolean equal(Object other){
 			Branch o = (Branch)other;
-			System.out.println(this.branchPoint.toString() + "::" + o.branchPoint.toString());
 			if(o.branchPoint.equals(this.branchPoint)){
 				return true;
 			}
 			return false;
 		}
 	}
-} 
+}
