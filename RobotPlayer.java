@@ -366,8 +366,14 @@ public class RobotPlayer{
 		 */
 		public boolean stillHerding(){
 			RobotInfo[] zombos = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared,Team.ZOMBIE);
-			if(zombos.length >= 3 || zombos.length >= disciples){
-				disciples = zombos.length;
+			int count = 0;
+			for(int i = 0; i < zombos.length; i++){
+				if(zombos[i].type == RobotType.ZOMBIEDEN){
+					count++;
+				}
+			}
+			if(count >= 3 || count >= disciples){
+				disciples = count;
 				return true;
 			}
 			return false;
