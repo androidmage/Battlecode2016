@@ -5,6 +5,7 @@ import java.util.Random;	//Use this instead of Math.random(); seeded by the robo
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.ArrayList;
+import java.lang.Math;
 
 public class RobotPlayer{
 	/**
@@ -112,13 +113,14 @@ public class RobotPlayer{
 						RESOURCE_FUNCTIONS.BUG(enemyArchonLocation);
 					}
 					if(rc.isWeaponReady()){
-						RobotInfo[] robots = rc.senseNearbyRobots();
+					/*	RobotInfo[] robots = rc.senseNearbyRobots();
 						for(RobotInfo robot: robots) {
 							if((robot.team == Team.ZOMBIE || robot.team == opponentTeam) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
 							}
-						}
+						}*/
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 					}
 					// If there are enough scouts around, move out towards enemy Archon
 					/* (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
@@ -183,7 +185,7 @@ public class RobotPlayer{
 					}
 					if(rc.isWeaponReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
-						for(RobotInfo robot: robots) {
+						/*for(RobotInfo robot: robots) {
 							if((robot.team == Team.ZOMBIE) && rc.canAttackLocation(robot.location)) {
 								rc.attackLocation(robot.location);
 								break;
@@ -194,7 +196,9 @@ public class RobotPlayer{
 								rc.attackLocation(robot.location);
 								break;
 							}
-						}
+						}*/
+						
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 						//If didn't attack anyone that is adjacent
 						if(rc.isWeaponReady()){
 							MapLocation target = null;
@@ -844,6 +848,40 @@ public class RobotPlayer{
 			return Direction.SOUTH;
 
 		}
+		
+		public static void attackWeakestEnemy(){
+			MapLocation weakestEnemyLocation = locateWeakestEnemy();
+			if(weakestEnemyLocation==null){
+				return;
+			}
+			try{
+				rc.attackLocation(weakestEnemyLocation);
+			}
+			catch (Exception e) {
+        			System.out.println(e.getMessage());
+        		        e.printStackTrace();
+        		}
+
+		}
+
+		public static MapLocation locateWeakestEnemy(){
+			RobotInfo[] sensedRobots = rc.senseHostileRobots(rc.getLocation(),Math.min(rc.getType().sensorRadiusSquared, rc.getType().attackRadiusSquared));
+			RobotInfo weakest=null;
+			if(sensedRobots != null){
+				for(RobotInfo robot: sensedRobots){
+					if(robot.team == opponentTeam || robot.team == Team.ZOMBIE){
+						if(weakest == null || robot.health<weakest.health){
+							weakest=robot;
+						}
+					}
+				}
+				if(weakest!= null){
+					return weakest.location;
+				}
+			}
+			return null;
+		}
+
 	}
 
 	/**
