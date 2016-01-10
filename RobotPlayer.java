@@ -86,9 +86,7 @@ public class RobotPlayer{
 							// receive a message containing enemy archon ID
 							if (s.getTeam() == ourTeam) {
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								System.out.println(f.type);
 								if(f.type == 2){
-									System.out.println("66");
 									int xPos = f.ints.first;
 									int yPos = f.ints.second;
 									enemyArchonLocation = new MapLocation(xPos, yPos);
@@ -208,15 +206,12 @@ public class RobotPlayer{
 							}
 							for(RobotInfo robot: robots) {
 								if((robot.team == opponentTeam) && robot.location.distanceSquaredTo(startLocation) < 25) {
-									System.out.println("pikachu");
 									target = robot.location;
 									break;
 								}
 							}
 							if(target != null){
-								System.out.println("target found");
 								RESOURCE_FUNCTIONS.BUG(target);
-								System.out.println("Still alive");
 							}
 						}
 					}
@@ -312,7 +307,6 @@ public class RobotPlayer{
 				try{
 					MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.scanArchonLocation();
 					if(enemyArchonLocation != null){
-						System.out.println("XXXXXXXXXXXXXXX");
 						int xPos = enemyArchonLocation.x;
 						int yPos = enemyArchonLocation.y;
 						FancyMessage.sendMessage(2, xPos, yPos, 1000);
