@@ -762,6 +762,9 @@ public class RobotPlayer{
 		}
 		public static void escapeEnemy(RobotController rc){
 			MapLocation enemyLocation = locateEnemy(rc);
+			if(enemyLocation == null){
+				return;
+			}
 			Direction moveDirection = calculateEscapeDirection(rc, enemyLocation);
 			if(rc.canMove(moveDirection)){
 				try{
@@ -776,11 +779,13 @@ public class RobotPlayer{
 		}
 
 		public static MapLocation locateEnemy(RobotController rc){
-			RobotInfo[] sensedRobots = rc.senseNearbyRobots();
+			RobotInfo[] sensedRobots = rc.senseHostileRobots(rc.getLocation(),rc.getType().sensorRadiusSquared);
 			MapLocation closest = null;
-			for(RobotInfo robot: sensedRobots){
-				if(robot.team == opponentTeam || robot.team == Team.ZOMBIE){
-					return robot.location;
+			if(sensedRobots != null){
+				for(RobotInfo robot: sensedRobots){
+					if(robot.team == opponentTeam || robot.team == Team.ZOMBIE){
+						return robot.location;
+					}
 				}
 			}
 			return null;
