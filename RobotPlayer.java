@@ -251,7 +251,7 @@ public class RobotPlayer{
 				try{
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
-						RESOURCE_FUNCTIONS.escapeEnemy(rc);
+						RESOURCE_FUNCTIONS.escapeEnemy();
 						if(rc.getRoundNum() % 100 == 0){
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
@@ -760,12 +760,16 @@ public class RobotPlayer{
 			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
 		}
-		public static void escapeEnemy(RobotController rc){
-			MapLocation enemyLocation = locateEnemy(rc);
+		public static void escapeEnemy(){
+			RobotInfo[] enemies = locateEnemy();
+			if(enemies == null){
+				return;
+			}
+			MapLocation enemyLocation = dangerousRobotLocation(enemies);
 			if(enemyLocation == null){
 				return;
 			}
-			Direction moveDirection = calculateEscapeDirection(rc, enemyLocation);
+			Direction moveDirection = calculateEscapeDirection(enemyLocation);
 			if(rc.canMove(moveDirection)){
 				try{
 					rc.move(moveDirection);
@@ -778,20 +782,24 @@ public class RobotPlayer{
 			}
 		}
 
-		public static MapLocation locateEnemy(RobotController rc){
+		public static RobotInfo[] locateEnemy(){
 			RobotInfo[] sensedRobots = rc.senseHostileRobots(rc.getLocation(),rc.getType().sensorRadiusSquared);
-			MapLocation closest = null;
 			if(sensedRobots != null){
-				for(RobotInfo robot: sensedRobots){
-					if(robot.team == opponentTeam || robot.team == Team.ZOMBIE){
-						return robot.location;
-					}
+				return sensedRobots;
+			}
+			return null;
+		}
+		
+		public static MapLocation dangerousRobotLocation(RobotInfo[] enemies){
+			for(RobotInfo enemy: enemies){
+				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
+					return enemy.location;
 				}
 			}
 			return null;
 		}
 
-		public static Direction calculateEscapeDirection(RobotController rc, MapLocation enemyLocation){
+		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
 			MapLocation myLocation = rc.getLocation();
 			int xDifference = enemyLocation.x - myLocation.x;
 			int yDifference = enemyLocation.y - myLocation.y;
