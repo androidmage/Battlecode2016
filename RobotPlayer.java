@@ -140,17 +140,17 @@ public class RobotPlayer{
 	 */
 	private class Guard {
 		
-		public MapLocation startLocation;
+		public MapLocation archonLocation;
 		public int moveCount;
 
 		public Guard() {
-			startLocation = rc.getLocation();
 			moveCount = 0;
 		}
 
 		public void run() {
 			while(true){
 				try{
+					archonLocation = RESOURCE_FUNCTIONS.scanFriendlyArchonLocation();
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
@@ -172,13 +172,13 @@ public class RobotPlayer{
 						RobotInfo[] robots = rc.senseNearbyRobots();
 						boolean targetFound = false;
 						for(RobotInfo robot:robots){
-							if(robot.location.distanceSquaredTo(startLocation) < 25){
+							if(robot.location.distanceSquaredTo(archonLocation) < 25){
 								targetFound = true;
 								break;
 							}
 						}
 						if(targetFound == false){
-							RESOURCE_FUNCTIONS.BUG(startLocation);
+							RESOURCE_FUNCTIONS.BUG(archonLocation);
 						}
 					}
 					if(rc.isWeaponReady()){
@@ -199,13 +199,13 @@ public class RobotPlayer{
 						if(rc.isWeaponReady()){
 							MapLocation target = null;
 							for(RobotInfo robot: robots) {
-								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(startLocation) < 25) {
+								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(archonLocation) < 25) {
 									target = robot.location;
 									break;
 								}
 							}
 							for(RobotInfo robot: robots) {
-								if((robot.team == opponentTeam) && robot.location.distanceSquaredTo(startLocation) < 25) {
+								if((robot.team == opponentTeam) && robot.location.distanceSquaredTo(archonLocation) < 25) {
 									target = robot.location;
 									break;
 								}
@@ -424,6 +424,23 @@ public class RobotPlayer{
 		public static MapLocation scanArchonLocation() {
 			RobotInfo[] robots;
 			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, opponentTeam);
+			for(int i = 0; i < robots.length; i++) {
+				if(robots[i].type == RobotType.ARCHON) {
+					return robots[i].location;
+				}
+			}
+			return null;
+		}
+		
+		/**
+		 * 
+		 * MapLocation scanFriendlyArchonLocation
+		 * @return location of friendly archon
+		 * 
+		 */
+		public static MapLocation scanFriendlyArchonLocation() {
+			RobotInfo[] robots;
+			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, ourTeam);
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
 					return robots[i].location;
