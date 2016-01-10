@@ -143,9 +143,11 @@ public class RobotPlayer{
 	private class Guard {
 		
 		public MapLocation startLocation;
+		public int moveCount;
 
 		public Guard() {
 			startLocation = rc.getLocation();
+			moveCount = 0;
 		}
 
 		public void run() {
@@ -154,7 +156,7 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
-							if(s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+							if(moveCount < 1 && s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
@@ -162,9 +164,23 @@ public class RobotPlayer{
 								if(rc.isCoreReady()){
 									if(rc.canMove(oppositeDirection)){
 										rc.move(oppositeDirection);
+										moveCount += 1;
 									}
 								}
 							}
+						}
+					}
+					if(rc.isCoreReady()){
+						RobotInfo[] robots = rc.senseNearbyRobots();
+						boolean targetFound = false;
+						for(RobotInfo robot:robots){
+							if(robot.location.distanceSquaredTo(startLocation) < 25){
+								targetFound = true;
+								break;
+							}
+						}
+						if(targetFound == false){
+							RESOURCE_FUNCTIONS.BUG(startLocation);
 						}
 					}
 					if(rc.isWeaponReady()){
@@ -578,9 +594,12 @@ public class RobotPlayer{
 			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
 				return RobotType.SCOUT;
 			}
-			int fate = randall.nextInt(2);
-			if(fate == 1){
+			int fate = randall.nextInt(3);
+			if(fate == 0){
 				return RobotType.SOLDIER;
+			}
+			if(fate == 1){
+				return RobotType.SCOUT;
 			}
 			return RobotType.GUARD;
 		}
