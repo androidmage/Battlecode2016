@@ -251,6 +251,7 @@ public class RobotPlayer{
 				try{
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
+						RESOURCE_FUNCTIONS.escapeEnemy(rc);
 						if(rc.getRoundNum() % 100 == 0){
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
@@ -758,6 +759,60 @@ public class RobotPlayer{
 			}
 			rc.setIndicatorString(0,"Failed outside of branch");
 			return false;
+		}
+		public static void escapeEnemy(RobotController rc){
+			MapLocation enemyLocation = locateEnemy(rc);
+			Direction moveDirection = calculateEscapeDirection(rc, enemyLocation);
+			if(rc.canMove(moveDirection)){
+				try{
+					rc.move(moveDirection);
+				}
+				catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    e.printStackTrace();
+                }
+				
+			}
+		}
+
+		public static MapLocation locateEnemy(RobotController rc){
+			RobotInfo[] sensedRobots = rc.senseNearbyRobots();
+			MapLocation closest = null;
+			for(RobotInfo robot: sensedRobots){
+				if(robot.team == opponentTeam || robot.team == Team.ZOMBIE){
+					return robot.location;
+				}
+			}
+			return null;
+		}
+
+		public static Direction calculateEscapeDirection(RobotController rc, MapLocation enemyLocation){
+			MapLocation myLocation = rc.getLocation();
+			int xDifference = enemyLocation.x - myLocation.x;
+			int yDifference = enemyLocation.y - myLocation.y;
+			if(xDifference>0 && yDifference>0){
+				return Direction.NORTH_WEST;
+			}
+			else if(xDifference>0 && yDifference<0){
+				return Direction.SOUTH_WEST;
+			}
+			else if(xDifference<0 && yDifference<0){
+				return Direction.SOUTH_EAST;
+			}
+			else if(xDifference<0 && yDifference>0){
+				return Direction.NORTH_EAST;
+			}
+			else if(xDifference>0){
+				return Direction.WEST;
+			}
+			else if(xDifference<0){
+				return Direction.EAST;
+			}
+			else if(yDifference>0){
+				return Direction.NORTH;
+			}
+			return Direction.SOUTH;
+
 		}
 	}
 
