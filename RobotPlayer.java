@@ -1224,7 +1224,7 @@ public class RobotPlayer{
 		 */
 		public boolean equal(Object other){
 			Branch o = (Branch)other;
-			if(o.branchPoint.equals(this.branchPoint)){
+			if(o.branchPoint.equals(this.branchPoint) && o.target.equals(this.target)){
 				return true;
 			}
 			return false;
