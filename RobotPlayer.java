@@ -786,21 +786,23 @@ public class RobotPlayer{
 			if(enemies == null){
 				return;
 			}
-			MapLocation enemyLocation = dangerousRobotLocation(enemies);
-			if(enemyLocation == null){
+			ArrayList<RobotInfo> dangerousEnemies = dangerousRobotLocation(enemies);
+			if(dangerousEnemies == null){
 				return;
 			}
-			Direction moveDirection = calculateEscapeDirection(enemyLocation);
-			if(rc.canMove(moveDirection)){
-				try{
-					rc.move(moveDirection);
+			try{
+				for(RobotInfo dangerousEnemy: dangerousEnemies){
+					Direction escapeDirection = calculateEscapeDirection(dangerousEnemy.location);
+					if(rc.canMove(escapeDirection)){
+						System.out.println("success");
+						rc.move(escapeDirection);
+					}
 				}
-				catch (Exception e) {
-                    System.out.println(e.getMessage());
-                    e.printStackTrace();
-                }
-				
 			}
+			catch (Exception e) {
+                System.out.println(e.getMessage());
+                e.printStackTrace();
+            }
 		}
 
 		public static RobotInfo[] locateEnemy(){
@@ -811,13 +813,14 @@ public class RobotPlayer{
 			return null;
 		}
 		
-		public static MapLocation dangerousRobotLocation(RobotInfo[] enemies){
+		public static ArrayList<RobotInfo> dangerousRobotLocation(RobotInfo[] enemies){
+			ArrayList<RobotInfo> dangerousEnemies = new ArrayList<RobotInfo>();
 			for(RobotInfo enemy: enemies){
 				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
-					return enemy.location;
+					dangerousEnemies.add(enemy);
 				}
 			}
-			return null;
+			return dangerousEnemies;
 		}
 
 		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
