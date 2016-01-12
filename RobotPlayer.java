@@ -260,7 +260,7 @@ public class RobotPlayer{
 							FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
 							if(x.isMessage){
 								if(x.type == 2){
-									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first,x.ints.second),rc.getRoundNum()));
+									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first - 16000,x.ints.second - 16000),rc.getRoundNum()));
 								}
 							}
 						}
@@ -277,12 +277,13 @@ public class RobotPlayer{
 							//Also signals the scout which type to become
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+							//Check if near zombie round
 							int roundNum = rc.getRoundNum();
 							boolean isCloseToZombieRound = false;
 							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
-								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 5);
+								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 10);
 							}
-							if (isCloseToZombieRound) {
+							if (mostRecentEnemyArchonLocations.size() != 0 && isCloseToZombieRound) {
 								scoutType = getScoutHerdingType();
 							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
@@ -300,7 +301,11 @@ public class RobotPlayer{
 		}
 		
 		public Triple<Integer, Integer, Integer> getScoutHerdingType(){
-			return new Triple<Integer, Integer, Integer>(1,1,1);
+			MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation();
+			System.out.println("enemyArchonLocation =" + enemyArchonLocation);
+			int xPosition = enemyArchonLocation.x << 2;
+			int yPosition = enemyArchonLocation.y;
+			return new Triple<Integer, Integer, Integer>(1,xPosition,yPosition);
 		}
 	}
 
@@ -353,9 +358,9 @@ public class RobotPlayer{
 											runAsArchonSearcher();
 										}else if((x.ints.first & 3) == 1){
 											if(x.bits[2]){
-												mostRecentArchonLocation = new MapLocation(x.ints.first >> 16,x.ints.second);
+												mostRecentArchonLocation = new MapLocation(x.ints.first >> 2,x.ints.second);
 											}
-											System.out.println("Running as zombie herder");
+											System.out.println("Running as zombie herder to archon at (" + mostRecentArchonLocation.x + "," + mostRecentArchonLocation.y + ")");
 											runAsZombieHerder();
 										}else if((x.ints.first & 3) == 2){
 											runAsTurretSights(x.ints.second);
