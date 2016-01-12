@@ -62,6 +62,38 @@ public class RobotPlayer{
 	}
 	
 	/**
+	 * 
+	 * Class Turret
+	 * 
+	 * The class outlining our turret bots
+	 * 
+	 */
+	private class Turret{
+		
+		MapLocation enemyLocation;
+		
+		public Turret(){
+			
+		}
+		
+		public void run(){
+			while(true){
+				try{
+					
+					if(rc.isWeaponReady()){
+						enemyLocation = RESOURCE_FUNCTIONS.locateStrongestEnemy();
+						if(rc.canAttackLocation(enemyLocation)){
+							rc.attackLocation(enemyLocation);
+						}
+					}
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	/**
 	 * Class Soldier
 	 * 
 	 * The class outlining our soldier bots
@@ -157,7 +189,7 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
-							if(moveCount < 1 && s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+							if(moveCount < 1 && s.getTeam() == ourTeam && rc.senseRobot(s.getID()) != null && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
 								MapLocation archonLocation = f.senderLocation;
 								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
@@ -280,7 +312,12 @@ public class RobotPlayer{
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
 							//Check if near zombie round
-							if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
+							int roundNum = rc.getRoundNum();
+							boolean isCloseToZombieRound = false;
+							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
+								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 10);
+							}
+							if (mostRecentEnemyArchonLocations.size() != 0 && isCloseToZombieRound) {
 								scoutType = getScoutHerdingType();
 							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
@@ -541,7 +578,7 @@ public class RobotPlayer{
 		 */
 		public static MapLocation scanFriendlyArchonLocation() {
 			RobotInfo[] robots;
-			robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, ourTeam);
+			robots = rc.senseNearbyRobots(rc.getType().sensorRadiusSquared, ourTeam);
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
 					return robots[i].location;
@@ -639,21 +676,6 @@ public class RobotPlayer{
 			Tuple<MapLocation, Double> locationAndSize = new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
 
 			return locationAndSize;
-		}
-		
-		/**
-		 * isCloseToZombieSpawnRound
-		 * @returns whether or not the current round is close enough to a zombie spawn round
-		 * 			to make a scout be a zombie herder
-		 */
-		public static boolean isCloseToZombieSpawnRound() {
-			int roundNum = rc.getRoundNum();
-			boolean isCloseToZombieRound = false;
-			for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
-				int diff = zombieRounds[i] - roundNum;
-				isCloseToZombieRound = (diff < 50 && diff > -5);
-			}
-			return isCloseToZombieRound;
 		}
 
 		/**
@@ -949,6 +971,25 @@ public class RobotPlayer{
 			Direction enemyDirection = rc.getLocation().directionTo(enemyLocation);
 			return enemyDirection.opposite();
 		}
+		
+		public static MapLocation locateStrongestEnemy(){
+			RobotInfo[] enemies = rc.senseHostileRobots(rc.getLocation(), rc.getType().sensorRadiusSquared);
+			if(enemies != null){
+				double max = 0;
+				RobotInfo strongest = null;
+				for(RobotInfo robot: enemies){
+					if(robot.health > max && robot.location.distanceSquaredTo(rc.getLocation()) >= GameConstants.TURRET_MINIMUM_RANGE){
+						max = robot.health;
+						strongest = robot;
+					}
+				}
+				if(strongest != null){
+					return strongest.location;
+				}
+			}
+			return null;
+		}
+		
 		public static void attackWeakestEnemy(){
 			MapLocation weakestEnemyLocation = locateWeakestEnemy();
 			if(weakestEnemyLocation==null){
