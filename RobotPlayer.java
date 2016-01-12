@@ -869,7 +869,7 @@ public class RobotPlayer{
 			if(enemies == null){
 				return;
 			}
-			ArrayList<RobotInfo> dangerousEnemies = dangerousRobotLocation(enemies);
+			ArrayList<RobotInfo> dangerousEnemies = dangerousRobots(enemies, rc.getLocation());
 			if(dangerousEnemies == null){
 				return;
 			}
@@ -877,8 +877,15 @@ public class RobotPlayer{
 				for(RobotInfo dangerousEnemy: dangerousEnemies){
 					Direction escapeDirection = calculateEscapeDirection(dangerousEnemy.location);
 					if(rc.canMove(escapeDirection)){
-						System.out.println("success");
 						rc.move(escapeDirection);
+						return;
+					}
+				}
+				for(Direction possibleDirection: DIRECTIONS){
+					dangerousEnemies = dangerousRobots(enemies, rc.getLocation().add(possibleDirection));
+					if(rc.canMove(possibleDirection) && dangerousEnemies == null){
+						rc.move(possibleDirection);
+						return;
 					}
 				}
 			}
@@ -896,7 +903,7 @@ public class RobotPlayer{
 			return null;
 		}
 		
-		public static ArrayList<RobotInfo> dangerousRobotLocation(RobotInfo[] enemies){
+		public static ArrayList<RobotInfo> dangerousRobots(RobotInfo[] enemies, MapLocation location){
 			ArrayList<RobotInfo> dangerousEnemies = new ArrayList<RobotInfo>();
 			for(RobotInfo enemy: enemies){
 				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
@@ -905,36 +912,11 @@ public class RobotPlayer{
 			}
 			return dangerousEnemies;
 		}
-
-		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
-			MapLocation myLocation = rc.getLocation();
-			int xDifference = enemyLocation.x - myLocation.x;
-			int yDifference = enemyLocation.y - myLocation.y;
-			if(xDifference>0 && yDifference>0){
-				return Direction.NORTH_WEST;
-			}
-			else if(xDifference>0 && yDifference<0){
-				return Direction.SOUTH_WEST;
-			}
-			else if(xDifference<0 && yDifference<0){
-				return Direction.SOUTH_EAST;
-			}
-			else if(xDifference<0 && yDifference>0){
-				return Direction.NORTH_EAST;
-			}
-			else if(xDifference>0){
-				return Direction.WEST;
-			}
-			else if(xDifference<0){
-				return Direction.EAST;
-			}
-			else if(yDifference>0){
-				return Direction.NORTH;
-			}
-			return Direction.SOUTH;
-
-		}
 		
+		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
+			Direction enemyDirection = rc.getLocation().directionTo(enemyLocation);
+			return enemyDirection.opposite();
+		}
 		public static void attackWeakestEnemy(){
 			MapLocation weakestEnemyLocation = locateWeakestEnemy();
 			if(weakestEnemyLocation==null){
