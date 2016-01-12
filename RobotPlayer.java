@@ -174,7 +174,7 @@ public class RobotPlayer{
 					if(rc.isCoreReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
 						boolean targetFound = false;
-						if(robots != null){
+						if(robots != null && archonLocation != null){
 							for(RobotInfo robot:robots){
 								if(robot.location.distanceSquaredTo(archonLocation) < 25){
 									targetFound = true;
@@ -182,7 +182,7 @@ public class RobotPlayer{
 								}
 							}
 						}
-						if(targetFound == false){
+						if(targetFound == false && archonLocation != null){
 							RESOURCE_FUNCTIONS.BUG(archonLocation);
 						}
 					}
@@ -203,7 +203,7 @@ public class RobotPlayer{
 						
 						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 						//If didn't attack anyone that is adjacent
-						if(rc.isWeaponReady()){
+						if(rc.isWeaponReady() && robots != null && archonLocation != null){
 							MapLocation target = null;
 							for(RobotInfo robot: robots) {
 								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(archonLocation) < 25) {
