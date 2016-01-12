@@ -189,15 +189,17 @@ public class RobotPlayer{
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){ //if == 0, no signals, so not ready
 						for(Signal s: signals){
-							if(moveCount < 1 && s.getTeam() == ourTeam && rc.senseRobot(s.getID()).type == RobotType.ARCHON){
+							if(moveCount < 1 && s.getTeam() == ourTeam){
 								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								MapLocation archonLocation = f.senderLocation;
-								Direction archonDirection = rc.getLocation().directionTo(archonLocation);
-								Direction oppositeDirection = archonDirection.opposite();
-								if(rc.isCoreReady()){
-									if(rc.canMove(oppositeDirection)){
-										rc.move(oppositeDirection);
-										moveCount += 1;
+								if(f.type == 0){
+									MapLocation archonCreatorLocation = f.senderLocation;
+									Direction archonDirection = rc.getLocation().directionTo(archonCreatorLocation);
+									Direction oppositeDirection = archonDirection.opposite();
+									if(rc.isCoreReady()){
+										if(rc.canMove(oppositeDirection)){
+											rc.move(oppositeDirection);
+											moveCount += 1;
+										}
 									}
 								}
 							}
@@ -938,6 +940,12 @@ public class RobotPlayer{
 						return;
 					}
 				}
+				for(Direction possibleDirection: DIRECTIONS){
+					if(rc.canMove(possibleDirection)){
+						rc.move(possibleDirection);
+						return;
+					}
+				}
 			}
 			catch (Exception e) {
                 System.out.println(e.getMessage());
@@ -959,6 +967,9 @@ public class RobotPlayer{
 				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
 					dangerousEnemies.add(enemy);
 				}
+			}
+			if(dangerousEnemies.isEmpty()){
+				return null;
 			}
 			return dangerousEnemies;
 		}
