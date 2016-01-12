@@ -359,9 +359,7 @@ public class RobotPlayer{
 										if((x.ints.first & 3) == 0){
 											runAsArchonSearcher();
 										}else if((x.ints.first & 3) == 1){
-											if(x.bits[2]){
-												mostRecentArchonLocation = new MapLocation(x.ints.first >> 2,x.ints.second);
-											}
+											mostRecentArchonLocation = new MapLocation(x.ints.first >> 2,x.ints.second);
 											System.out.println("Running as zombie herder to archon at (" + mostRecentArchonLocation.x + "," + mostRecentArchonLocation.y + ")");
 											runAsZombieHerder();
 										}else if((x.ints.first & 3) == 2){
