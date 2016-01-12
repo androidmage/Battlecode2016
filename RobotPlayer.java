@@ -280,12 +280,7 @@ public class RobotPlayer{
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
 							//Check if near zombie round
-							int roundNum = rc.getRoundNum();
-							boolean isCloseToZombieRound = false;
-							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
-								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 10);
-							}
-							if (mostRecentEnemyArchonLocations.size() != 0 && isCloseToZombieRound) {
+							if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
 								scoutType = getScoutHerdingType();
 							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
@@ -644,6 +639,21 @@ public class RobotPlayer{
 			Tuple<MapLocation, Double> locationAndSize = new Tuple<MapLocation, Double>(maxPileLocation, maxPileSize);
 
 			return locationAndSize;
+		}
+		
+		/**
+		 * isCloseToZombieSpawnRound
+		 * @returns whether or not the current round is close enough to a zombie spawn round
+		 * 			to make a scout be a zombie herder
+		 */
+		public static boolean isCloseToZombieSpawnRound() {
+			int roundNum = rc.getRoundNum();
+			boolean isCloseToZombieRound = false;
+			for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
+				int diff = zombieRounds[i] - roundNum;
+				isCloseToZombieRound = (diff < 50 && diff > -5);
+			}
+			return isCloseToZombieRound;
 		}
 
 		/**
