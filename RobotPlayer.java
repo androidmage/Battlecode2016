@@ -862,72 +862,58 @@ public class RobotPlayer{
 		 *
 		 */
 		public static boolean BUG(MapLocation target) throws GameActionException{
-			rc.setIndicatorString(1,target.toString());
-			if(!rc.isCoreReady()) return false;
-			MapLocation current = rc.getLocation();
-			Direction directionToTarget = current.directionTo(target);
-			if(rc.canMove(directionToTarget) && (Branch.last == null || !Branch.last.contains(current.add(directionToTarget)))){
-				rc.setIndicatorString(2,"Starting no branch // ");
-				rc.setIndicatorString(0,current.add(directionToTarget).toString() + " from no branch");
-				Branch.last = new ArrayList<MapLocation>();
-				Branch.last.add(current);
-				rc.move(directionToTarget);
-				Branch.lastStatus = 0;
+			if(!rc.isCoreReady()) return false; //Can't move don't try
+			MapLocation current = rc.getLocation(); //Store to save them bytecodes
+			Direction directionToTarget = current.directionTo(target); //also save
+			if(rc.canMove(directionToTarget) && (Branch.last == null || !Branch.last.contains(current.add(directionToTarget)))){ //check if we can move towards target, and we haven't tried that spot before
+				Branch.last = new ArrayList<MapLocation>(); //reset our old set of last
+				Branch.last.add(current); //add this move to last
+				rc.move(directionToTarget); //then move
+				Branch.lastStatus = 0; //remember that we're now moving towards target
 				if(current.add(directionToTarget).equals(target)){
-					Branch.resetPath();
+					Branch.resetPath(); //if we made it, reset everything
 				}
 				return true;
-			}else if(Branch.lastStatus == 0){
-				rc.setIndicatorString(2,"Starting choosing branch");
-				Branch decision = Branch.fork(current,target);
-				rc.setIndicatorString(1,"Made it past $fork");
-				MapLocation bestChoice = decision.bestBranch();
-				rc.setIndicatorString(1,"Made it past @bestBranch");
-				if(bestChoice != null){
-					rc.setIndicatorString(0,bestChoice.toString() + " from choosing branch");
-					Branch.last.add(current);
-					rc.move(current.directionTo(bestChoice));
+			}else if(Branch.lastStatus == 0){ //if we were going straight, but now can't
+				Branch decision = Branch.fork(current,target); //make a fork where we are
+				MapLocation bestChoice = decision.bestBranch(); //get the best direction to go
+				if(bestChoice != null){ //if there is no best, don't move
+					Branch.last.add(current); //add this move to last
+					rc.move(current.directionTo(bestChoice)); //then move
 					return true;
 				}
-				rc.setIndicatorString(0,"Failed in choosing branch");
 				return false;
-			}else if(Branch.lastStatus == 1){
-				rc.setIndicatorString(2,"Starting right branch");
-				Branch currentStep = new Branch(current,target);
-				Branch temp = Branch.getFromEarlier(currentStep);
-				if(temp != null){
+			}else if(Branch.lastStatus == 1){ //if we were going to the right
+				Branch currentStep = new Branch(current,target); //get the branch here
+				Branch temp = Branch.getFromEarlier(currentStep); //get the older version, if applicable
+				if(temp != null){ //if there was a previous, replace currentStep w it
 					currentStep = temp;
 				}
-				MapLocation nextChoice = currentStep.getRightCanditate();
-				if(nextChoice != null){
-					rc.setIndicatorString(0,nextChoice.toString() + " from right branch");
-					Branch.last.add(current);
-					rc.move(current.directionTo(nextChoice));
+				MapLocation nextChoice = currentStep.getRightCanditate(); //get the right canditate
+				if(nextChoice != null){ //if there is a right canditate
+					Branch.last.add(current); //add it
+					rc.move(current.directionTo(nextChoice)); //move it
 					return true;
 				}
-				rc.setIndicatorString(0,"Failed in right branch");
 				return false;
-			}else if(Branch.lastStatus == -1){
-				rc.setIndicatorString(2,"Starting left branch");
-				Branch currentStep = new Branch(current,target);
-				Branch temp = Branch.getFromEarlier(currentStep);
-				if(temp != null){
+			}else if(Branch.lastStatus == -1){ //if we were going to the left
+				Branch currentStep = new Branch(current,target); //get the branch here
+				Branch temp = Branch.getFromEarlier(currentStep); //get the older version, if applicable
+				if(temp != null){ //if there was a previous, replace currentStep w it
 					currentStep = temp;
 
 				}
-				MapLocation nextChoice = currentStep.getLeftCanditate();
-				if(nextChoice != null){
-					rc.setIndicatorString(0,nextChoice.toString() + " from left branch");
-					Branch.last.add(current);
-					rc.move(current.directionTo(nextChoice));
+				MapLocation nextChoice = currentStep.getLeftCanditate(); //get the left canditate
+				if(nextChoice != null){ //if there is a left canditate
+					Branch.last.add(current); //add it
+					rc.move(current.directionTo(nextChoice)); //move it
 					return true;
 				}
-				rc.setIndicatorString(0,"Failed in choosing branch");
 				return false;
 			}
-			rc.setIndicatorString(0,"Failed outside of branch");
-			return false;
+			return false; //if nothing works just return false
 		}
+
 		public static void escapeEnemy(){
 			RobotInfo[] enemies = locateEnemy();
 			if(enemies == null){
