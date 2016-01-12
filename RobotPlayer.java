@@ -62,6 +62,38 @@ public class RobotPlayer{
 	}
 	
 	/**
+	 * 
+	 * Class Turret
+	 * 
+	 * The class outlining our turret bots
+	 * 
+	 */
+	private class Turret{
+		
+		MapLocation enemyLocation;
+		
+		public Turret(){
+			
+		}
+		
+		public void run(){
+			while(true){
+				try{
+					
+					if(rc.isWeaponReady()){
+						enemyLocation = RESOURCE_FUNCTIONS.locateStrongestEnemy();
+						if(rc.canAttackLocation(enemyLocation)){
+							rc.attackLocation(enemyLocation);
+						}
+					}
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	/**
 	 * Class Soldier
 	 * 
 	 * The class outlining our soldier bots
@@ -280,12 +312,7 @@ public class RobotPlayer{
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
 							//Check if near zombie round
-							int roundNum = rc.getRoundNum();
-							boolean isCloseToZombieRound = false;
-							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
-								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 10);
-							}
-							if (mostRecentEnemyArchonLocations.size() != 0 && isCloseToZombieRound) {
+							if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
 								scoutType = getScoutHerdingType();
 							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
@@ -645,6 +672,21 @@ public class RobotPlayer{
 
 			return locationAndSize;
 		}
+		
+		/**
+		 * isCloseToZombieSpawnRound
+		 * @returns whether or not the current round is close enough to a zombie spawn round
+		 * 			to make a scout be a zombie herder
+		 */
+		public static boolean isCloseToZombieSpawnRound() {
+			int roundNum = rc.getRoundNum();
+			boolean isCloseToZombieRound = false;
+			for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
+				int diff = zombieRounds[i] - roundNum;
+				isCloseToZombieRound = (diff < 50 && diff > -5);
+			}
+			return isCloseToZombieRound;
+		}
 
 		/**
 		 * boolean moveAsFarAwayAsPossibleFrom
@@ -953,6 +995,23 @@ public class RobotPlayer{
 				}
 				if(weakest!= null){
 					return weakest.location;
+				}
+			}
+			return null;
+		}
+		public static MapLocation locateStrongestEnemy(){
+			RobotInfo[] enemies = rc.senseHostileRobots(rc.getLocation(), rc.getType().sensorRadiusSquared);
+			if(enemies != null){
+				double max = 0;
+				RobotInfo strongest = null;
+				for(RobotInfo robot: enemies){
+					if(robot.health > max && robot.location.distanceSquaredTo(rc.getLocation()) >= GameConstants.TURRET_MINIMUM_RANGE){
+						max = robot.health;
+						strongest = robot;
+					}
+				}
+				if(strongest != null){
+					return strongest.location;
 				}
 			}
 			return null;
