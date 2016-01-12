@@ -127,6 +127,7 @@ public class RobotPlayer{
 						RESOURCE_FUNCTIONS.BUG(RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation());
 					}*/
 					
+					Clock.yield();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -273,8 +274,17 @@ public class RobotPlayer{
 						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
 						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
+							//Also signals the scout which type to become
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+							int roundNum = rc.getRoundNum();
+							boolean isCloseToZombieRound = false;
+							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
+								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 5);
+							}
+							if (isCloseToZombieRound) {
+								scoutType = getScoutHerdingType();
+							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
 						}
 					}
@@ -287,6 +297,10 @@ public class RobotPlayer{
 
 		public Triple<Integer,Integer,Integer> getScoutInitType(){
 			return new Triple<Integer,Integer,Integer>(0,0,0);
+		}
+		
+		public Triple<Integer, Integer, Integer> getScoutHerdingType(){
+			return new Triple<Integer, Integer, Integer>(1,1,1);
 		}
 	}
 
@@ -341,6 +355,7 @@ public class RobotPlayer{
 											if(x.bits[2]){
 												mostRecentArchonLocation = new MapLocation(x.ints.first >> 16,x.ints.second);
 											}
+											System.out.println("Running as zombie herder");
 											runAsZombieHerder();
 										}else if((x.ints.first & 3) == 2){
 											runAsTurretSights(x.ints.second);
@@ -413,6 +428,7 @@ public class RobotPlayer{
 			while(true){
 				try{
 
+					Clock.yield();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -431,6 +447,7 @@ public class RobotPlayer{
 					}else{
 						runAsArchonSearcher();
 					}
+					Clock.yield();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
