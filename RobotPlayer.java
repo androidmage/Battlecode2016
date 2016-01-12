@@ -62,6 +62,38 @@ public class RobotPlayer{
 	}
 	
 	/**
+	 * 
+	 * Class Turret
+	 * 
+	 * The class outlining our turret bots
+	 * 
+	 */
+	private class Turret{
+		
+		MapLocation enemyLocation;
+		
+		public Turret(){
+			
+		}
+		
+		public void run(){
+			while(true){
+				try{
+					
+					if(rc.isWeaponReady()){
+						enemyLocation = RESOURCE_FUNCTIONS.locateStrongestEnemy();
+						if(rc.canAttackLocation(enemyLocation)){
+							rc.attackLocation(enemyLocation);
+						}
+					}
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	/**
 	 * Class Soldier
 	 * 
 	 * The class outlining our soldier bots
@@ -977,6 +1009,23 @@ public class RobotPlayer{
 				}
 				if(weakest!= null){
 					return weakest.location;
+				}
+			}
+			return null;
+		}
+		public static MapLocation locateStrongestEnemy(){
+			RobotInfo[] enemies = rc.senseHostileRobots(rc.getLocation(), rc.getType().sensorRadiusSquared);
+			if(enemies != null){
+				double max = 0;
+				RobotInfo strongest = null;
+				for(RobotInfo robot: enemies){
+					if(robot.health > max && robot.location.distanceSquaredTo(rc.getLocation()) >= GameConstants.TURRET_MINIMUM_RANGE){
+						max = robot.health;
+						strongest = robot;
+					}
+				}
+				if(strongest != null){
+					return strongest.location;
 				}
 			}
 			return null;
