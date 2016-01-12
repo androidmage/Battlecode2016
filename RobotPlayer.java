@@ -305,8 +305,8 @@ public class RobotPlayer{
 		public Triple<Integer, Integer, Integer> getScoutHerdingType(){
 			MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation();
 			System.out.println("enemyArchonLocation =" + enemyArchonLocation);
-			int xPosition = enemyArchonLocation.x << 2;
-			int yPosition = enemyArchonLocation.y;
+			int xPosition = (enemyArchonLocation.x + 16000) << 2;
+			int yPosition = (enemyArchonLocation.y + 16000);
 			return new Triple<Integer, Integer, Integer>(1,xPosition,yPosition);
 		}
 	}
@@ -359,7 +359,7 @@ public class RobotPlayer{
 										if((x.ints.first & 3) == 0){
 											runAsArchonSearcher();
 										}else if((x.ints.first & 3) == 1){
-											mostRecentArchonLocation = new MapLocation(x.ints.first >> 2,x.ints.second);
+											mostRecentArchonLocation = new MapLocation((x.ints.first >>> 2) - 16000,x.ints.second - 16000);
 											System.out.println("Running as zombie herder to archon at (" + mostRecentArchonLocation.x + "," + mostRecentArchonLocation.y + ")");
 											runAsZombieHerder();
 										}else if((x.ints.first & 3) == 2){
