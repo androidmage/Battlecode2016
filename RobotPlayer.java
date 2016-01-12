@@ -174,10 +174,12 @@ public class RobotPlayer{
 					if(rc.isCoreReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
 						boolean targetFound = false;
-						for(RobotInfo robot:robots){
-							if(robot.location.distanceSquaredTo(archonLocation) < 25){
-								targetFound = true;
-								break;
+						if(robots != null){
+							for(RobotInfo robot:robots){
+								if(robot.location.distanceSquaredTo(archonLocation) < 25){
+									targetFound = true;
+									break;
+								}
 							}
 						}
 						if(targetFound == false){
