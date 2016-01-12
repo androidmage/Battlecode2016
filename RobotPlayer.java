@@ -25,9 +25,9 @@ public class RobotPlayer{
 	static Team opponentTeam;
 	static int[] zombieRounds;
 	static MapLocation[] zombieDenLocations;
-	static Collection<Integer> enemyArchonIDs;
+	static ArrayList<Integer> enemyArchonIDs = new ArrayList<Integer>();
 	// Collection of <Archon ID, Archon Location, Round that measurement was taken>
-	static Collection<Triple<Integer,MapLocation,Integer>> mostRecentEnemyArchonLocations;
+	static ArrayList<Triple<Integer,MapLocation,Integer>> mostRecentEnemyArchonLocations = new ArrayList<Triple<Integer,MapLocation,Integer>>();
 	static Direction[] DIRECTIONS = new Direction[]{Direction.NORTH,Direction.NORTH_EAST,Direction.EAST,Direction.SOUTH_EAST,Direction.SOUTH,Direction.SOUTH_WEST,Direction.WEST,Direction.NORTH_WEST};
 
 	/**
@@ -253,6 +253,17 @@ public class RobotPlayer{
 		public void run(){
 			while(true){
 				try{
+					Signal[] signals = rc.emptySignalQueue();
+					for(int i = 0; i < signals.length; i++){
+						if(signals[i].getTeam() == ourTeam){
+							FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
+							if(x.isMessage){
+								if(x.type == 2){
+									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first,x.ints.second),rc.getRoundNum()));
+								}
+							}
+						}
+					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
 						RESOURCE_FUNCTIONS.escapeEnemy();
@@ -263,7 +274,8 @@ public class RobotPlayer{
 						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							Clock.yield();
-							FancyMessage.sendMessage(0,0b11101,31,30);
+							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
 						}
 					}
 					Clock.yield();
@@ -271,6 +283,10 @@ public class RobotPlayer{
 					e.printStackTrace();
 				}
 			}
+		}
+
+		public Triple<Integer,Integer,Integer> getScoutInitType(){
+			return new Triple<Integer,Integer,Integer>(0,0,0);
 		}
 	}
 
@@ -285,9 +301,10 @@ public class RobotPlayer{
 	 *
 	 */
 	private class Scout{
-		MapLocation base;
+		MapLocation base = null;
 		int disciples;
-		MapLocation last;
+		MapLocation last = null;
+		MapLocation mostRecentArchonLocation = null;
 
 		/**
 		 * Constructor
@@ -309,61 +326,111 @@ public class RobotPlayer{
 		 */
 		public void run(){
 			while(true){
+				if(base == null){
+					Signal[] signals = rc.emptySignalQueue();
+					if(signals.length > 0){
+						for(int i = 0; i < signals.length; i++){
+							if(signals[i].getTeam() == ourTeam){
+								FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
+								if(x.isMessage){
+									if(x.type == 0){
+										base = x.senderLocation;
+										if((x.ints.first & 3) == 0){
+											runAsArchonSearcher();
+										}else if((x.ints.first & 3) == 1){
+											if(x.bits[2]){
+												mostRecentArchonLocation = new MapLocation(x.ints.first >> 16,x.ints.second);
+											}
+											runAsZombieHerder();
+										}else if((x.ints.first & 3) == 2){
+											runAsTurretSights(x.ints.second);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		public void runAsArchonSearcher(){
+			boolean foundArchon = false;
+			while(!foundArchon){
 				try{
 					MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.scanArchonLocation();
 					if(enemyArchonLocation != null){
 						int xPos = enemyArchonLocation.x;
 						int yPos = enemyArchonLocation.y;
-						FancyMessage.sendMessage(2, xPos, yPos, 1000);
+						FancyMessage.sendMessage(2, xPos + 16000, yPos + 16000, 1000);
+						foundArchon = true;
+					}else if(rc.isCoreReady()){
+						RESOURCE_FUNCTIONS.moveAsFarAwayAsPossibleFrom(base);
 					}
-					//Do nothing until base-line information is gathered: ie, where are the archons. in future, archons may also give message assigning role
-					if(base == null){
-						Signal[] signals = rc.emptySignalQueue();
-						if(signals.length > 0){ //if == 0, no signals, so not ready
-							Tuple<Integer,Integer> approxxCoordinates = new Tuple<Integer,Integer>(0,0);
-							//averages the signal's origins
-							int counted = 0;
-							for(int i = 0; i < signals.length; i++){
-								if(signals[i].getTeam() == rc.getTeam() && rc.senseRobot(signals[i].getID()).type == RobotType.ARCHON){
-									FancyMessage f = FancyMessage.getFromRecievedSignal(signals[i]);
-									rc.setIndicatorString(0,"Type:" + f.type + "::Key:" + f.key);
-									//rc.setIndicatorString(1,"Info:" + Arrays.toString(f.bits));
-									approxxCoordinates.first += f.senderLocation.x;
-									approxxCoordinates.second += f.senderLocation.y;
-									counted++;
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				Clock.yield();
+			}
+			runAsZombieBomber();
+		}
+
+		public void runAsZombieHerder(){
+			while(true){
+				try{
+					Signal[] signals = rc.emptySignalQueue();
+					for(Signal s : signals){
+						if(s.getTeam() == ourTeam){
+							FancyMessage x = FancyMessage.getFromRecievedSignal(s);
+							if(x.type == 2){
+								mostRecentArchonLocation = new MapLocation(x.ints.first - 16000,x.ints.second - 16000);
+							}
+						}
+					}
+					if(rc.isCoreReady()){
+						if(stillHerding()){
+							if(mostRecentArchonLocation != null){
+								wiggle(mostRecentArchonLocation);
+							}else{
+								RESOURCE_FUNCTIONS.moveAsFarAwayAsPossibleFrom(base);
+							}
+						}else{
+							if(last != null){
+								if(rc.canMove(rc.getLocation().directionTo(last))){
+									rc.move(rc.getLocation().directionTo(last));
 								}
 							}
-							if(counted > 0){
-								approxxCoordinates.first /= counted;
-								approxxCoordinates.second /= counted;
+						}
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				Clock.yield();
+			}
+		}
 
-								//sets @base to this
-								base = new MapLocation(approxxCoordinates.first,approxxCoordinates.second);
-								//rc.setIndicatorString(0,"x:" + base.x + "::y:" + base.y);
-							}
+		public void runAsTurretSights(int turretID){
+			while(true){
+				try{
+
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		}
+
+		public void runAsZombieBomber(){
+			while(true){
+				try{
+					if(mostRecentArchonLocation != null){
+						if(rc.getLocation().distanceSquaredTo(mostRecentArchonLocation) < 25 && rc.getInfectedTurns() > 0){
+							rc.disintegrate();
+						}else if(rc.isCoreReady()){
+							wiggle(mostRecentArchonLocation);
 						}
 					}else{
-						//If initialized, checks to make sure it isn't losing its herd
-						if(stillHerding()){
-							//if they're still following, it tries to move
-							if(rc.isCoreReady()){
-								MapLocation temp = rc.getLocation();
-								if(RESOURCE_FUNCTIONS.moveAsFarAwayAsPossibleFrom(base)){//See RESOURCE_FUNCTIONS for details
-									last = temp;
-								}
-							}
-							//Otherwise, moves back to where it last was to try to regain them
-						}else if(last != null){
-							if(rc.isCoreReady()){
-								if(rc.canMove(rc.getLocation().directionTo(last))){
-									MapLocation temp = rc.getLocation();
-									rc.move(temp.directionTo(last));
-									last = temp;
-								}
-							}
-						}
+						runAsArchonSearcher();
 					}
-					Clock.yield();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -391,6 +458,19 @@ public class RobotPlayer{
 			if(count >= 3 || count >= disciples){
 				disciples = count;
 				return true;
+			}
+			return false;
+		}
+
+		public boolean wiggle(MapLocation target) throws GameActionException{
+			int[] tryOrder = new int[]{0,1,-1,2,-2,3,-3,4};
+			int toTarget = RESOURCE_FUNCTIONS.dirToInt(rc.getLocation().directionTo(target));
+			for(int i = 0; i < tryOrder.length; i++){
+				if(rc.canMove(RESOURCE_FUNCTIONS.intToDir(toTarget + tryOrder[i]))){
+					last = rc.getLocation();
+					rc.move(RESOURCE_FUNCTIONS.intToDir(toTarget + tryOrder[i]));
+					return true;
+				}
 			}
 			return false;
 		}
@@ -662,6 +742,9 @@ public class RobotPlayer{
 		 * Get most recent enemy archon location
 		 */
 		public static MapLocation mostRecentEnemyArchonLocation() {
+			if(mostRecentEnemyArchonLocations.size() == 0){
+				return null;
+			}
 			MapLocation latestArchonLocation = new MapLocation(0,0);
 			int latestRound = 0;
 			for (Triple<Integer, MapLocation, Integer> trip : mostRecentEnemyArchonLocations) {
@@ -786,7 +869,7 @@ public class RobotPlayer{
 			if(enemies == null){
 				return;
 			}
-			ArrayList<RobotInfo> dangerousEnemies = dangerousRobotLocation(enemies);
+			ArrayList<RobotInfo> dangerousEnemies = dangerousRobots(enemies, rc.getLocation());
 			if(dangerousEnemies == null){
 				return;
 			}
@@ -794,8 +877,15 @@ public class RobotPlayer{
 				for(RobotInfo dangerousEnemy: dangerousEnemies){
 					Direction escapeDirection = calculateEscapeDirection(dangerousEnemy.location);
 					if(rc.canMove(escapeDirection)){
-						System.out.println("success");
 						rc.move(escapeDirection);
+						return;
+					}
+				}
+				for(Direction possibleDirection: DIRECTIONS){
+					dangerousEnemies = dangerousRobots(enemies, rc.getLocation().add(possibleDirection));
+					if(rc.canMove(possibleDirection) && dangerousEnemies == null){
+						rc.move(possibleDirection);
+						return;
 					}
 				}
 			}
@@ -813,7 +903,7 @@ public class RobotPlayer{
 			return null;
 		}
 		
-		public static ArrayList<RobotInfo> dangerousRobotLocation(RobotInfo[] enemies){
+		public static ArrayList<RobotInfo> dangerousRobots(RobotInfo[] enemies, MapLocation location){
 			ArrayList<RobotInfo> dangerousEnemies = new ArrayList<RobotInfo>();
 			for(RobotInfo enemy: enemies){
 				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
@@ -822,36 +912,11 @@ public class RobotPlayer{
 			}
 			return dangerousEnemies;
 		}
-
-		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
-			MapLocation myLocation = rc.getLocation();
-			int xDifference = enemyLocation.x - myLocation.x;
-			int yDifference = enemyLocation.y - myLocation.y;
-			if(xDifference>0 && yDifference>0){
-				return Direction.NORTH_WEST;
-			}
-			else if(xDifference>0 && yDifference<0){
-				return Direction.SOUTH_WEST;
-			}
-			else if(xDifference<0 && yDifference<0){
-				return Direction.SOUTH_EAST;
-			}
-			else if(xDifference<0 && yDifference>0){
-				return Direction.NORTH_EAST;
-			}
-			else if(xDifference>0){
-				return Direction.WEST;
-			}
-			else if(xDifference<0){
-				return Direction.EAST;
-			}
-			else if(yDifference>0){
-				return Direction.NORTH;
-			}
-			return Direction.SOUTH;
-
-		}
 		
+		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
+			Direction enemyDirection = rc.getLocation().directionTo(enemyLocation);
+			return enemyDirection.opposite();
+		}
 		public static void attackWeakestEnemy(){
 			MapLocation weakestEnemyLocation = locateWeakestEnemy();
 			if(weakestEnemyLocation==null){
@@ -934,11 +999,33 @@ public class RobotPlayer{
 		public int senderID;
 		public MapLocation senderLocation;
 		public boolean[] bits;
+		public boolean isMessage;
 		public Tuple<Integer,Integer> ints;
 		private static Tuple<Integer,Integer> hiddenInts;
 		public int type;
 		public int key;
 		public FancyMessage(){
+		}
+
+		/**
+		 * int getIntFromBitsInRange
+		 *
+		 * gets the int stored from bits @lower to @upper
+		 *
+		 * @param lower: the lower bound of the int (first bit to be counted, least significant)
+		 * @param upper: the upper bound of the int (not counted, all bits below though)
+		 *
+		 * @return the int represented by these bits
+		 *
+		 */
+		public int getIntFrombitsInRange(int lower,int upper){
+			int ret = 0;
+			for(int i = 0; i < upper - lower && i < 32 && i + upper < bits.length; i++){
+				if(bits[i + lower]){
+					ret |= 1 << i;
+				}
+			}
+			return ret;
 		}
 
 		/**
@@ -956,12 +1043,17 @@ public class RobotPlayer{
 			ret.senderID = s.getID();
 			ret.senderLocation = s.getLocation();
 			int[] is = s.getMessage();
-			Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
-			ret.type = info.first;
-			ret.bits = info.second;
-			ret.ints = hiddenInts;
-			hiddenInts = null;
-			ret.key = (is[0] & 0b11110000) >> 4;
+			if(is == null){
+				ret.isMessage = false;
+			}else{
+				ret.isMessage = true;
+				Tuple<Integer,boolean[]> info = decrypt(new Tuple<Integer,Integer>(is[0],is[1]));
+				ret.type = info.first;
+				ret.bits = info.second;
+				ret.ints = hiddenInts;
+				hiddenInts = null;
+				ret.key = (is[0] & 0b11110000) >> 4;
+			}
 			return ret;
 		}
 
@@ -1296,7 +1388,7 @@ public class RobotPlayer{
 					int forwardInt = RESOURCE_FUNCTIONS.dirToInt(forward); //Only perform this once, for optimization
 					//Next line is long. Gets an array of all directions considered "left" relative to @forward
 					Direction[] rights = new Direction[]{RESOURCE_FUNCTIONS.intToDir((forwardInt + 5) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 6) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 7) % 8)};
-					if(!branchPoint.equals(options[i]) && rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i])){ //checks this option to be: not current position, traversable, and on the map
+					if(!branchPoint.equals(options[i]) && rc.canMove(forward) && rc.onTheMap(options[i])){ //checks this option to be: not current position, traversable, and on the map
 						for(int j = 0; j < rights.length && !isRight; j++){ //as long as we're not sure it's right, loop through "left" directions and see if any are walls (rubble > 100)
 							if(rc.senseRubble(options[i].add(rights[j])) > 100 && !last.contains(options[i])){ //right only if we haven't visited it recently, and there is rubble > 100 on "left"
 								isRight = true;
@@ -1332,7 +1424,7 @@ public class RobotPlayer{
 					int forwardInt = RESOURCE_FUNCTIONS.dirToInt(forward); //Only perform this once, for optimization
 					//Next line is long. Gets an array of all directions considered "right" relative to @forward
 					Direction[] lefts = new Direction[]{RESOURCE_FUNCTIONS.intToDir((forwardInt + 1) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 2) % 8),RESOURCE_FUNCTIONS.intToDir((forwardInt + 3) % 8)};
-					if(rc.senseRubble(options[i]) < 100 && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){ //checks this option to be: not current position, traversable, and on the map
+					if(rc.canMove(forward) && rc.onTheMap(options[i]) && !branchPoint.equals(options[i])){ //checks this option to be: not current position, traversable, and on the map
 						for(int j = 0; j < lefts.length && !isLeft; j++){ //as long as we're not sure it's left, loop through "right" directions and see if any are walls (rubble > 100)
 							if(rc.senseRubble(options[i].add(lefts[j])) > 100&& !last.contains(options[i])){ //left only if we haven't visited it recently, and there is rubble > 100 on "right"
 								isLeft = true;
