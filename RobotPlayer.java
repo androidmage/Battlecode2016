@@ -274,7 +274,7 @@ public class RobotPlayer{
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
 						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
-						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
+						if(rc.isCoreReady() && RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							//Also signals the scout which type to become
 							Clock.yield();
