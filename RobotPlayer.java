@@ -127,6 +127,7 @@ public class RobotPlayer{
 						RESOURCE_FUNCTIONS.BUG(RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation());
 					}*/
 					
+					Clock.yield();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -173,13 +174,15 @@ public class RobotPlayer{
 					if(rc.isCoreReady()){
 						RobotInfo[] robots = rc.senseNearbyRobots();
 						boolean targetFound = false;
-						for(RobotInfo robot:robots){
-							if(robot.location.distanceSquaredTo(archonLocation) < 25){
-								targetFound = true;
-								break;
+						if(robots != null && archonLocation != null){
+							for(RobotInfo robot:robots){
+								if(robot.location.distanceSquaredTo(archonLocation) < 25){
+									targetFound = true;
+									break;
+								}
 							}
 						}
-						if(targetFound == false){
+						if(targetFound == false && archonLocation != null){
 							RESOURCE_FUNCTIONS.BUG(archonLocation);
 						}
 					}
@@ -200,7 +203,7 @@ public class RobotPlayer{
 						
 						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 						//If didn't attack anyone that is adjacent
-						if(rc.isWeaponReady()){
+						if(rc.isWeaponReady() && robots != null && archonLocation != null){
 							MapLocation target = null;
 							for(RobotInfo robot: robots) {
 								if((robot.team == Team.ZOMBIE) && robot.location.distanceSquaredTo(archonLocation) < 25) {
@@ -259,7 +262,7 @@ public class RobotPlayer{
 							FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
 							if(x.isMessage){
 								if(x.type == 2){
-									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first,x.ints.second),rc.getRoundNum()));
+									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first - 16000,x.ints.second - 16000),rc.getRoundNum()));
 								}
 							}
 						}
@@ -273,8 +276,18 @@ public class RobotPlayer{
 						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
 						if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
+							//Also signals the scout which type to become
 							Clock.yield();
 							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+							//Check if near zombie round
+							int roundNum = rc.getRoundNum();
+							boolean isCloseToZombieRound = false;
+							for (int i = 0; i < zombieRounds.length && !isCloseToZombieRound; i++) {
+								isCloseToZombieRound = (Math.abs(roundNum - zombieRounds[i]) < 10);
+							}
+							if (mostRecentEnemyArchonLocations.size() != 0 && isCloseToZombieRound) {
+								scoutType = getScoutHerdingType();
+							}
 							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
 						}
 					}
@@ -287,6 +300,14 @@ public class RobotPlayer{
 
 		public Triple<Integer,Integer,Integer> getScoutInitType(){
 			return new Triple<Integer,Integer,Integer>(0,0,0);
+		}
+		
+		public Triple<Integer, Integer, Integer> getScoutHerdingType(){
+			MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.mostRecentEnemyArchonLocation();
+			System.out.println("enemyArchonLocation =" + enemyArchonLocation);
+			int xPosition = (enemyArchonLocation.x + 16000) << 2;
+			int yPosition = (enemyArchonLocation.y + 16000);
+			return new Triple<Integer, Integer, Integer>(1,xPosition,yPosition);
 		}
 	}
 
@@ -338,9 +359,8 @@ public class RobotPlayer{
 										if((x.ints.first & 3) == 0){
 											runAsArchonSearcher();
 										}else if((x.ints.first & 3) == 1){
-											if(x.bits[2]){
-												mostRecentArchonLocation = new MapLocation(x.ints.first >> 16,x.ints.second);
-											}
+											mostRecentArchonLocation = new MapLocation((x.ints.first >>> 2) - 16000,x.ints.second - 16000);
+											System.out.println("Running as zombie herder to archon at (" + mostRecentArchonLocation.x + "," + mostRecentArchonLocation.y + ")");
 											runAsZombieHerder();
 										}else if((x.ints.first & 3) == 2){
 											runAsTurretSights(x.ints.second);
@@ -413,6 +433,7 @@ public class RobotPlayer{
 			while(true){
 				try{
 
+					Clock.yield();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -431,6 +452,7 @@ public class RobotPlayer{
 					}else{
 						runAsArchonSearcher();
 					}
+					Clock.yield();
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -869,7 +891,7 @@ public class RobotPlayer{
 			if(enemies == null){
 				return;
 			}
-			ArrayList<RobotInfo> dangerousEnemies = dangerousRobotLocation(enemies);
+			ArrayList<RobotInfo> dangerousEnemies = dangerousRobots(enemies, rc.getLocation());
 			if(dangerousEnemies == null){
 				return;
 			}
@@ -877,8 +899,15 @@ public class RobotPlayer{
 				for(RobotInfo dangerousEnemy: dangerousEnemies){
 					Direction escapeDirection = calculateEscapeDirection(dangerousEnemy.location);
 					if(rc.canMove(escapeDirection)){
-						System.out.println("success");
 						rc.move(escapeDirection);
+						return;
+					}
+				}
+				for(Direction possibleDirection: DIRECTIONS){
+					dangerousEnemies = dangerousRobots(enemies, rc.getLocation().add(possibleDirection));
+					if(rc.canMove(possibleDirection) && dangerousEnemies == null){
+						rc.move(possibleDirection);
+						return;
 					}
 				}
 			}
@@ -896,7 +925,7 @@ public class RobotPlayer{
 			return null;
 		}
 		
-		public static ArrayList<RobotInfo> dangerousRobotLocation(RobotInfo[] enemies){
+		public static ArrayList<RobotInfo> dangerousRobots(RobotInfo[] enemies, MapLocation location){
 			ArrayList<RobotInfo> dangerousEnemies = new ArrayList<RobotInfo>();
 			for(RobotInfo enemy: enemies){
 				if(enemy.location.distanceSquaredTo(rc.getLocation()) <= enemy.type.attackRadiusSquared){
@@ -905,36 +934,11 @@ public class RobotPlayer{
 			}
 			return dangerousEnemies;
 		}
-
-		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
-			MapLocation myLocation = rc.getLocation();
-			int xDifference = enemyLocation.x - myLocation.x;
-			int yDifference = enemyLocation.y - myLocation.y;
-			if(xDifference>0 && yDifference>0){
-				return Direction.NORTH_WEST;
-			}
-			else if(xDifference>0 && yDifference<0){
-				return Direction.SOUTH_WEST;
-			}
-			else if(xDifference<0 && yDifference<0){
-				return Direction.SOUTH_EAST;
-			}
-			else if(xDifference<0 && yDifference>0){
-				return Direction.NORTH_EAST;
-			}
-			else if(xDifference>0){
-				return Direction.WEST;
-			}
-			else if(xDifference<0){
-				return Direction.EAST;
-			}
-			else if(yDifference>0){
-				return Direction.NORTH;
-			}
-			return Direction.SOUTH;
-
-		}
 		
+		public static Direction calculateEscapeDirection(MapLocation enemyLocation){
+			Direction enemyDirection = rc.getLocation().directionTo(enemyLocation);
+			return enemyDirection.opposite();
+		}
 		public static void attackWeakestEnemy(){
 			MapLocation weakestEnemyLocation = locateWeakestEnemy();
 			if(weakestEnemyLocation==null){
