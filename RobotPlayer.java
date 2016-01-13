@@ -59,8 +59,60 @@ public class RobotPlayer{
 			Soldier s = new RobotPlayer().new Soldier();
 			s.run();
 		}
+		else if(selftype == RobotType.VIPER){
+			Viper s = new RobotPlayer().new Viper();
+			s.run();
+		}
 	}
 	
+	/**
+	 * 
+	 * Class Viper
+	 * 
+	 * The class outlining our viper bots
+	 * 
+	 */
+	private class Viper{
+		public MapLocation enemyArchonLocation;
+		public boolean goOffense;
+		
+		public Viper() {
+			goOffense = false;
+		}
+		
+		public void run() {
+			while(true) {
+				try {
+					// Use Guard AI (move out) until there are enough soldiers ammassed around, then go towards enemy archon and attack
+					Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
+							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								if(f.type == 2){
+									int xPos = f.ints.first;
+									int yPos = f.ints.second;
+									enemyArchonLocation = new MapLocation(xPos, yPos);
+									goOffense = true;
+								}
+							}
+						}
+					}
+					if(rc.isCoreReady() && goOffense){
+						RESOURCE_FUNCTIONS.BUG(enemyArchonLocation);
+					}
+					if(rc.isWeaponReady()){
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+					}
+					Clock.yield();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		
+	}
 	/**
 	 * 
 	 * Class Turret
