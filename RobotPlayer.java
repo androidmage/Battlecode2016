@@ -753,6 +753,9 @@ public class RobotPlayer{
 			if(Math.random()*3>1) {
 				return RobotType.SCOUT;
 			}
+			if(almostSurrounded()){
+				return RobotType.SCOUT;
+			}
 			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
 				return RobotType.SCOUT;
 			}
@@ -765,7 +768,18 @@ public class RobotPlayer{
 			}
 			return RobotType.GUARD;
 		}
-
+		/**
+		 * boolean almostSurrounded
+		 * @return a boolean on whether or not robot is almost surrounded
+		 * 
+		 */
+		public static boolean almostSurrounded(){
+			RobotInfo[] robots = rc.senseNearbyRobots(3);
+			if(robots != null && robots.length == 7){
+				return true;
+			}
+			return false;
+		}
 		/**
 		 * Returns the number of robots within a given radius squared
 		 * @param type the type of robot to look for
