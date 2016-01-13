@@ -63,6 +63,14 @@ public class RobotPlayer{
 			Viper s = new RobotPlayer().new Viper();
 			s.run();
 		}
+		else if(selftype == RobotType.TURRET){
+			Turret s = new RobotPlayer().new Turret();
+			s.run();
+		}
+		else if(selftype == RobotType.TTM){
+			TTM s = new RobotPlayer().new TTM();
+			s.run();
+		}
 	}
 	
 	/**
@@ -113,7 +121,7 @@ public class RobotPlayer{
 		}
 		
 	}
-	/**
+/**
 	 * 
 	 * Class Turret
 	 * 
@@ -122,7 +130,9 @@ public class RobotPlayer{
 	 */
 	private class Turret{
 		
-		MapLocation enemyLocation;
+		//MapLocation enemyLocation;
+		public MapLocation enemyArchonLocation;
+	
 		
 		public Turret(){
 			
@@ -130,13 +140,66 @@ public class RobotPlayer{
 		
 		public void run(){
 			while(true){
-				try{
-					
-					if(rc.isWeaponReady()){
-						enemyLocation = RESOURCE_FUNCTIONS.locateStrongestEnemy();
-						if(rc.canAttackLocation(enemyLocation)){
-							rc.attackLocation(enemyLocation);
+				try{Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
+							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								if(f.type == 2){
+									int xPos = f.ints.first;
+									int yPos = f.ints.second;
+									enemyArchonLocation = new MapLocation(xPos, yPos);
+								}
+							}
 						}
+					}
+					if(enemyArchonLocation.distanceSquaredTo(rc.getLocation())>40){
+						rc.pack();
+					}
+					else if(rc.isWeaponReady()){
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	private class TTM{
+		
+		//MapLocation enemyLocation;
+		public MapLocation enemyArchonLocation;
+		//public boolean goOffense;
+		
+		public TTM(){
+			
+		}
+		
+		public void run(){
+			while(true){
+				try{
+					Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
+							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								if(f.type == 2){
+									int xPos = f.ints.first;
+									int yPos = f.ints.second;
+									enemyArchonLocation = new MapLocation(xPos, yPos);
+								}
+							}
+						}
+					}
+					if(enemyArchonLocation.distanceSquaredTo(rc.getLocation())<40){
+						rc.unpack();
+					}
+					
+					if(rc.isCoreReady()){
+						RESOURCE_FUNCTIONS.BUG(enemyArchonLocation);
 					}
 				}
 				catch (Exception e) {
@@ -145,6 +208,7 @@ public class RobotPlayer{
 			}
 		}
 	}
+	
 	/**
 	 * Class Soldier
 	 * 
