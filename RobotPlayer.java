@@ -111,7 +111,10 @@ public class RobotPlayer{
 						RESOURCE_FUNCTIONS.BUG(enemyArchonLocation);
 					}
 					if(rc.isWeaponReady()){
-						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+						MapLocation target = RESOURCE_FUNCTIONS.viperAttackTarget();
+						if(rc.canAttackLocation(target)){
+							rc.attackLocation(target);
+						}
 					}
 					Clock.yield();
 				} catch (Exception e) {
@@ -387,6 +390,9 @@ public class RobotPlayer{
 	 *
 	 */
 	private class Archon{
+		
+		public boolean ViperProduction;
+		public boolean production;
 
 		/**
 		 * Constructor
@@ -394,6 +400,8 @@ public class RobotPlayer{
 		 */
 		public Archon(){
 			zombieRounds = rc.getZombieSpawnSchedule().getRounds();
+			ViperProduction = false;
+			production = true;
 		}
 
 		/**
@@ -410,9 +418,18 @@ public class RobotPlayer{
 					for(int i = 0; i < signals.length; i++){
 						if(signals[i].getTeam() == ourTeam){
 							FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
+							System.out.println("type is " + x.type);
 							if(x.isMessage){
 								if(x.type == 2){
 									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first - 16000,x.ints.second - 16000),rc.getRoundNum()));
+								}
+								if(x.type == 3){
+									production = false;
+									ViperProduction = false;
+								}
+								if(x.type == 4){
+									production = true;
+									ViperProduction = false;
 								}
 							}
 						}
@@ -424,7 +441,19 @@ public class RobotPlayer{
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
 						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
-						if(rc.isCoreReady() && RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
+						if(!ViperProduction && production && type == RobotType.VIPER){
+							production = false;
+							ViperProduction = true;
+							FancyMessage.sendMessage(3, 0, 0, 1000);
+						}
+						if(!production && ViperProduction && RESOURCE_FUNCTIONS.tryBuild(RobotType.VIPER)){
+							ViperProduction = false;
+							System.out.println("success");
+							production = true;
+							FancyMessage.sendMessage(4, 0, 0, 1000);
+							type = RESOURCE_FUNCTIONS.chooseRobotType();
+						}
+						if(rc.isCoreReady() && production && RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 							//Also signals the scout which type to become
 							Clock.yield();
@@ -866,21 +895,24 @@ public class RobotPlayer{
 					return RobotType.SCOUT;
 				}
 			}
-			if(Math.random()*3>1) {
-				return RobotType.SCOUT;
-			}
 			if(almostSurrounded()){
 				return RobotType.SCOUT;
 			}
 			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
 				return RobotType.SCOUT;
 			}
-			int fate = randall.nextInt(3);
-			if(fate == 0){
+			int fate = randall.nextInt(10);
+			if(fate < 3){
 				return RobotType.SOLDIER;
 			}
-			if(fate == 1){
+			if(fate > 6){
 				return RobotType.SCOUT;
+			}
+			if(fate == 4){
+				int more_fate = randall.nextInt(2);
+				if(!RESOURCE_FUNCTIONS.zombiesNearby() && more_fate == 0){
+					return RobotType.VIPER;
+				}
 			}
 			return RobotType.GUARD;
 		}
@@ -1154,6 +1186,35 @@ public class RobotPlayer{
 				if(strongest != null){
 					return strongest.location;
 				}
+			}
+			return null;
+		}
+		public static boolean zombiesNearby(){
+			RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadiusSquared, Team.ZOMBIE);
+			if(enemies != null && enemies.length > 1){
+				return true;
+			}
+			return false;
+		}
+		public static MapLocation viperAttackTarget(){
+			RobotInfo[] sensedRobots = rc.senseNearbyRobots(RobotType.VIPER.attackRadiusSquared, opponentTeam);
+			RobotInfo target = null;
+			if(sensedRobots != null){
+				for(RobotInfo robot: sensedRobots){
+					if(target == null || robot.health<target.health){
+						target=robot;
+					}
+				}
+				return target.location;
+			}
+			sensedRobots = rc.senseNearbyRobots(RobotType.VIPER.attackRadiusSquared, Team.ZOMBIE);
+			if(sensedRobots != null){
+				for(RobotInfo robot: sensedRobots){
+					if(target == null || robot.health<target.health){
+						target=robot;
+					}
+				}
+				return target.location;
 			}
 			return null;
 		}
