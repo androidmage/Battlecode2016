@@ -85,7 +85,8 @@ public class RobotPlayer{
 		public boolean goOffense;
 		
 		public Viper() {
-			goOffense = false;
+			enemyArchonLocation = rc.getInitialArchonLocations(opponentTeam)[0];
+			goOffense = true;
 		}
 		
 		public void run() {
@@ -112,8 +113,14 @@ public class RobotPlayer{
 					}
 					if(rc.isWeaponReady()){
 						MapLocation target = RESOURCE_FUNCTIONS.viperAttackTarget();
-						if(rc.canAttackLocation(target)){
+						if(target != null && rc.canAttackLocation(target)){
 							rc.attackLocation(target);
+						}
+						else{
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(enemyArchonLocation);
+							if(rubbleDirection != null){
+								rc.clearRubble(rubbleDirection);
+							}
 						}
 					}
 					Clock.yield();
@@ -225,7 +232,9 @@ public class RobotPlayer{
 		public int moveCount;
 		
 		public Soldier() {
+			enemyArchonLocation = rc.getInitialArchonLocations(opponentTeam)[0];
 			moveCount = 0;
+			goOffense = true;
 		}
 		
 		public void run() {
@@ -272,6 +281,12 @@ public class RobotPlayer{
 							}
 						}*/
 						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+						if(rc.isWeaponReady()){
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(enemyArchonLocation);
+							if(rubbleDirection != null){
+								rc.clearRubble(rubbleDirection);
+							}
+						}
 					}
 					// If there are enough scouts around, move out towards enemy Archon
 					/* (mostRecentEnemyArchonLocations.size() > 0 && RESOURCE_FUNCTIONS.numberOfRobotsInRadiusAndThoseRobots(RobotType.SOLDIER, RobotType.SOLDIER.sensorRadiusSquared, rc.getTeam()).first > 5) {
@@ -374,6 +389,12 @@ public class RobotPlayer{
 								RESOURCE_FUNCTIONS.BUG(target);
 							}
 						}
+						if(rc.isWeaponReady()){
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.nearestRubble();
+							if(rubbleDirection != null){
+								rc.clearRubble(rubbleDirection);
+							}
+						}
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -391,8 +412,8 @@ public class RobotPlayer{
 	 */
 	private class Archon{
 		
-		public boolean ViperProduction;
 		public boolean production;
+		public RobotType decision;
 
 		/**
 		 * Constructor
@@ -400,7 +421,7 @@ public class RobotPlayer{
 		 */
 		public Archon(){
 			zombieRounds = rc.getZombieSpawnSchedule().getRounds();
-			ViperProduction = false;
+			decision = null;
 			production = true;
 		}
 
@@ -425,45 +446,40 @@ public class RobotPlayer{
 								}
 								if(x.type == 3){
 									production = false;
-									ViperProduction = false;
 								}
 								if(x.type == 4){
 									production = true;
-									ViperProduction = false;
 								}
 							}
 						}
 					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
-						RESOURCE_FUNCTIONS.escapeEnemy();
 						if(rc.getRoundNum() % 100 == 0){
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
-						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
-						if(!ViperProduction && production && type == RobotType.VIPER){
-							production = false;
-							ViperProduction = true;
-							FancyMessage.sendMessage(3, 0, 0, 1000);
+						if(decision == null){
+							decision = RESOURCE_FUNCTIONS.chooseRobotType();
 						}
-						if(!production && ViperProduction && RESOURCE_FUNCTIONS.tryBuild(RobotType.VIPER)){
-							ViperProduction = false;
-							System.out.println("success");
-							production = true;
-							FancyMessage.sendMessage(4, 0, 0, 1000);
-							type = RESOURCE_FUNCTIONS.chooseRobotType();
-						}
-						if(rc.isCoreReady() && production && RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
-							//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
-							//Also signals the scout which type to become
-							Clock.yield();
-							Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
-							//Check if near zombie round
-							if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
-								scoutType = getScoutHerdingType();
+						if(rc.isCoreReady() && production){
+							if(RESOURCE_FUNCTIONS.tryBuild(decision)){ //See function in RESOURCE_FUNCTIONS to know what it does
+								//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
+								//Also signals the scout which type to become
+								FancyMessage.sendMessage(4, 0, 0, 6400);
+								Clock.yield();
+								decision = null;
+								Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+								//Check if near zombie round
+								if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
+									scoutType = getScoutHerdingType();
+								}
+								FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
 							}
-							FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
+							else{
+								FancyMessage.sendMessage(3, 0, 0, 6400);
+							}
 						}
+						RESOURCE_FUNCTIONS.escapeEnemy();
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -902,15 +918,14 @@ public class RobotPlayer{
 				return RobotType.SCOUT;
 			}
 			int fate = randall.nextInt(10);
-			if(fate < 3){
+			if(fate < 4){
 				return RobotType.SOLDIER;
 			}
-			if(fate > 6){
+			if(fate == 9){
 				return RobotType.SCOUT;
 			}
-			if(fate == 4){
-				int more_fate = randall.nextInt(2);
-				if(!RESOURCE_FUNCTIONS.zombiesNearby() && more_fate == 0){
+			if(fate == 8){
+				if(!RESOURCE_FUNCTIONS.zombiesNearby()){
 					return RobotType.VIPER;
 				}
 			}
@@ -1205,7 +1220,9 @@ public class RobotPlayer{
 						target=robot;
 					}
 				}
-				return target.location;
+				if(target != null){
+					return target.location;
+				}
 			}
 			sensedRobots = rc.senseNearbyRobots(RobotType.VIPER.attackRadiusSquared, Team.ZOMBIE);
 			if(sensedRobots != null){
@@ -1214,7 +1231,29 @@ public class RobotPlayer{
 						target=robot;
 					}
 				}
-				return target.location;
+				if(target != null){
+					return target.location;
+				}
+			}
+			return null;
+		}
+		public static Direction clearRubbleForPath(MapLocation enemyArchonLocation){
+			Direction enemyArchonDirection = rc.getLocation().directionTo(enemyArchonLocation);
+			if(enemyArchonDirection != null && rc.senseRubble(rc.getLocation().add(enemyArchonDirection)) > 0){
+				return enemyArchonDirection;
+			}
+			return null;
+		}
+		public static Direction nearestRubble(){
+			for(Direction direction: DIRECTIONS){
+				if(rc.senseRubble(rc.getLocation().add(direction)) > 100){
+					return direction;
+				}
+			}
+			for(Direction direction: DIRECTIONS){
+				if(rc.senseRubble(rc.getLocation().add(direction)) > 50){
+					return direction;
+				}
 			}
 			return null;
 		}
