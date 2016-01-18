@@ -455,6 +455,10 @@ public class RobotPlayer{
 					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
+						MapLocation neutral = RESOURCE_FUNCTIONS.findAdjacentNeutralRobot();
+						if(neutral != null){
+							rc.activate(neutral);
+						}
 						if(rc.getRoundNum() % 100 == 0){
 							FancyMessage.sendMessage(1, 1, 1, 3);
 						}
@@ -479,7 +483,7 @@ public class RobotPlayer{
 								FancyMessage.sendMessage(3, 0, 0, 6400);
 							}
 						}
-						RESOURCE_FUNCTIONS.escapeEnemy();
+						movement();
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -498,6 +502,29 @@ public class RobotPlayer{
 			int xPosition = (enemyArchonLocation.x + 16000) << 2;
 			int yPosition = (enemyArchonLocation.y + 16000);
 			return new Triple<Integer, Integer, Integer>(1,xPosition,yPosition);
+		}
+		
+		public void movement(){
+			try{
+				if(rc.senseHostileRobots(rc.getLocation(), RobotType.ARCHON.sensorRadiusSquared) != null){
+					RESOURCE_FUNCTIONS.escapeEnemy();
+				}
+				if(rc.senseNearbyRobots(RobotType.ARCHON.sensorRadiusSquared, Team.NEUTRAL) != null){
+					RobotInfo neutral = RESOURCE_FUNCTIONS.seekNeutralRobots();
+					if(neutral != null){
+						RESOURCE_FUNCTIONS.BUG(neutral.location);
+					}
+				}
+				if(rc.sensePartLocations(RobotType.ARCHON.sensorRadiusSquared) != null){
+					MapLocation part = RESOURCE_FUNCTIONS.seekNearestPart();
+					if(part != null){
+						RESOURCE_FUNCTIONS.BUG(part);
+					}
+				}
+			}
+			catch(Exception e){
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -1256,6 +1283,39 @@ public class RobotPlayer{
 				}
 			}
 			return null;
+		}
+		public static RobotInfo seekNeutralRobots(){
+			RobotInfo[] neutrals = rc.senseNearbyRobots(RobotType.ARCHON.sensorRadiusSquared, Team.NEUTRAL);
+			RobotInfo closest = null;
+			int smallestDistance = 100;
+			for(RobotInfo neutral: neutrals){
+				if(closest == null || rc.getLocation().distanceSquaredTo(neutral.location) < smallestDistance){
+					closest = neutral;
+					smallestDistance = rc.getLocation().distanceSquaredTo(neutral.location);
+				}
+			}
+			return closest;
+		}
+		public static MapLocation findAdjacentNeutralRobot(){
+			RobotInfo[] neutrals = rc.senseNearbyRobots(RobotType.ARCHON.sensorRadiusSquared, Team.NEUTRAL);
+			for(RobotInfo neutral: neutrals){
+				if(neutral != null && rc.getLocation().isAdjacentTo(neutral.location)){
+					return neutral.location;
+				}
+			}
+			return null;
+		}
+		public static MapLocation seekNearestPart(){
+			MapLocation[] parts = rc.sensePartLocations(RobotType.ARCHON.sensorRadiusSquared);
+			MapLocation closest = null;
+			int smallestDistance = 100;
+			for(MapLocation part: parts){
+				if(closest == null || rc.getLocation().distanceSquaredTo(part) < smallestDistance){
+					closest = part;
+					smallestDistance = rc.getLocation().distanceSquaredTo(part);
+				}
+			}
+			return closest;
 		}
 
 	}
