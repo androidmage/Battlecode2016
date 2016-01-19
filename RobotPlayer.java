@@ -51,24 +51,16 @@ public class RobotPlayer{
 			Scout s = new RobotPlayer().new Scout();
 			s.run();
 		}
-		else if(selftype == RobotType.GUARD) {
-			Guard s = new RobotPlayer().new Guard();
-			s.run();
-		}
-		else if(selftype == RobotType.SOLDIER) {
-			Soldier s = new RobotPlayer().new Soldier();
-			s.run();
-		}
-		else if(selftype == RobotType.VIPER){
-			Viper s = new RobotPlayer().new Viper();
-			s.run();
-		}
 		else if(selftype == RobotType.TURRET){
 			Turret s = new RobotPlayer().new Turret();
 			s.run();
 		}
 		else if(selftype == RobotType.TTM){
 			TTM s = new RobotPlayer().new TTM();
+			s.run();
+		}
+		else if(selftype == RobotType.GUARD || selftype == RobotType.SOLDIER || selftype == RobotType.VIPER){
+			Swarmer s = new RobotPlayer().new Swarmer();
 			s.run();
 		}
 	}
@@ -404,6 +396,64 @@ public class RobotPlayer{
 		}
 	}
 	
+	public class Swarmer{
+		public MapLocation target;
+		public boolean goToTarget;
+		
+		public Swarmer(){
+			target = null;
+			goToTarget = false;
+		}
+		
+		public void run(){
+			while(true) {
+				try {
+					// Use Guard AI (move out) until there are enough soldiers ammassed around, then go towards enemy archon and attack
+					Signal[] signals = rc.emptySignalQueue();
+					if (signals.length > 0) {
+						for (Signal s : signals) {
+							// receive a message containing enemy archon ID
+							if (s.getTeam() == ourTeam) {
+								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
+								if(f.type == 2){
+									int xPos = f.ints.first;
+									int yPos = f.ints.second;
+									target = new MapLocation(xPos, yPos);
+									goToTarget = true;
+								}
+								if(f.type == 3){
+									goToTarget = false;
+								}
+							}
+						}
+					}
+					if(rc.isCoreReady()){
+						if(goToTarget && rc.getLocation().distanceSquaredTo(target) > 25){
+							RESOURCE_FUNCTIONS.BUG(target);
+						}
+						else{
+							Direction random = RESOURCE_FUNCTIONS.chooseRandomDirection();
+							if(rc.canMove(random)){
+								rc.move(random);
+							}
+						}
+					}
+					if(rc.isWeaponReady()){
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+						if(rc.isWeaponReady()){
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(target);
+							if(rubbleDirection != null){
+								rc.clearRubble(rubbleDirection);
+							}
+						}
+					}
+					Clock.yield();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 	/**
 	 * class Archon
 	 *
@@ -411,18 +461,22 @@ public class RobotPlayer{
 	 *
 	 */
 	private class Archon{
-		
-		public boolean production;
-		public RobotType decision;
 
+		public MapLocation target;
+		public boolean goToTarget;
+		public boolean alpha;
+		
 		/**
 		 * Constructor
 		 *
 		 */
 		public Archon(){
 			zombieRounds = rc.getZombieSpawnSchedule().getRounds();
-			decision = null;
-			production = true;
+			target = null;
+			goToTarget = false;
+			if(rc.getLocation().equals(rc.getInitialArchonLocations(ourTeam)[0])){
+				alpha = true;
+			}
 		}
 
 		/**
@@ -442,36 +496,42 @@ public class RobotPlayer{
 							System.out.println("type is " + x.type);
 							if(x.isMessage){
 								if(x.type == 2){
+									int xPos = x.ints.first;
+									int yPos = x.ints.second;
+									target = new MapLocation(xPos, yPos);
+									goToTarget = true;
 									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first - 16000,x.ints.second - 16000),rc.getRoundNum()));
 								}
 								if(x.type == 3){
-									production = false;
-								}
-								if(x.type == 4){
-									production = true;
+									goToTarget = false;
 								}
 							}
 						}
 					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
+						if(alpha && rc.getRoundNum() % 10 == 0){
+							FancyMessage.sendMessage(2, rc.getLocation().x, rc.getLocation().y, 6400);
+						}
+						else if(alpha && rc.getRoundNum() > 10 && (rc.getRoundNum() - 5) % 10 == 0 && rc.getLocation().equals(target)){
+							FancyMessage.sendMessage(3, 0, 0, 1000);
+						}
+						if(!alpha){
+							if(goToTarget && rc.getLocation().distanceSquaredTo(target) > 2){
+								RESOURCE_FUNCTIONS.BUG(target);
+							}
+						}
 						MapLocation neutral = RESOURCE_FUNCTIONS.findAdjacentNeutralRobot();
 						if(neutral != null){
 							rc.activate(neutral);
 						}
-						if(rc.getRoundNum() % 100 == 0){
-							FancyMessage.sendMessage(1, 1, 1, 3);
-						}
-						if(decision == null){
-							decision = RESOURCE_FUNCTIONS.chooseRobotType();
-						}
-						if(rc.isCoreReady() && production){
-							if(RESOURCE_FUNCTIONS.tryBuild(decision)){ //See function in RESOURCE_FUNCTIONS to know what it does
+						RobotType type = RESOURCE_FUNCTIONS.chooseRobotType();
+						if(rc.isCoreReady()){
+							if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 								//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 								//Also signals the scout which type to become
 								FancyMessage.sendMessage(4, 0, 0, 6400);
 								Clock.yield();
-								decision = null;
 								Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
 								//Check if near zombie round
 								if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
@@ -479,11 +539,8 @@ public class RobotPlayer{
 								}
 								FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
 							}
-							else{
-								FancyMessage.sendMessage(3, 0, 0, 6400);
-							}
+							
 						}
-						movement();
 					}
 					Clock.yield();
 				}catch(Exception e){
@@ -934,7 +991,7 @@ public class RobotPlayer{
 		public static RobotType chooseRobotType() {
 			for(int i: zombieRounds){
 				int currentRound = rc.getRoundNum();
-				if(i-currentRound<=40 && i-currentRound>=0){
+				if(i-currentRound<=20 && i-currentRound>=0){
 					return RobotType.SCOUT;
 				}
 			}
@@ -945,16 +1002,8 @@ public class RobotPlayer{
 				return RobotType.SCOUT;
 			}
 			int fate = randall.nextInt(10);
-			if(fate < 4){
+			if(fate > 1){
 				return RobotType.SOLDIER;
-			}
-			if(fate == 9){
-				return RobotType.SCOUT;
-			}
-			if(fate == 8){
-				if(!RESOURCE_FUNCTIONS.zombiesNearby()){
-					return RobotType.VIPER;
-				}
 			}
 			return RobotType.GUARD;
 		}
@@ -1316,6 +1365,9 @@ public class RobotPlayer{
 				}
 			}
 			return closest;
+		}
+		public static Direction chooseRandomDirection(){
+			return DIRECTIONS[randall.nextInt(DIRECTIONS.length)];
 		}
 
 	}
