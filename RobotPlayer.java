@@ -397,60 +397,148 @@ public class RobotPlayer{
 	}
 	
 	public class Swarmer{
-		public MapLocation target;
-		public boolean goToTarget;
+		public static final double SWARM_RATIO = 4.0 / 3; //ratio of all spaces to robots
+		public MapLocation coreLocation; //location of archon
+		public MapLocation target; //location of hostile target [zombiedens, enemyarchons]
+		public int moveType; //type of movement: 0==movement around friendly archon, 1==movement towards "stepping stone target", 2==movement towards hostile target
+		public int targetID;
+		public boolean locked = false;
 		
 		public Swarmer(){
+			coreLocation = null;
 			target = null;
-			goToTarget = false;
+			moveType = 0;
 		}
 		
 		public void run(){
 			while(true) {
 				try {
-					// Use Guard AI (move out) until there are enough soldiers ammassed around, then go towards enemy archon and attack
 					Signal[] signals = rc.emptySignalQueue();
-					if (signals.length > 0) {
-						for (Signal s : signals) {
-							// receive a message containing enemy archon ID
-							if (s.getTeam() == ourTeam) {
-								FancyMessage f = FancyMessage.getFromRecievedSignal(s);
-								if(f.type == 2){
-									int xPos = f.ints.first;
-									int yPos = f.ints.second;
-									target = new MapLocation(xPos, yPos);
-									goToTarget = true;
-								}
-								if(f.type == 3){
-									goToTarget = false;
+					for(int i = 0; i < signals.length; i++){
+						if(signals[i].getTeam() == ourTeam){
+							FancyMessage s = FancyMessage.getFromRecievedSignal(signals[i]);
+							if(s.isMessage){
+								if(s.type == 0){ //Type 0: give our bots location of archon
+									coreLocation = s.senderLocation;
+								}else if(s.type == 1){ //Type 1: give our bots a "stepping stone" location
+									if(moveType == 0 && !locked){ //ignored if we already have a target, or if in locked mode
+										moveType = 1;
+										target = new MapLocation(s.ints.first,s.ints.second);
+									}
+								}else if(s.type == 2){ //Type 2: force robots back into regular swarming
+									locked = true;
+									moveType = 0;
+								}else if(s.type == 3){ //Type 3: if in forced swarming, brings back to regular behavior
+									locked = false;
 								}
 							}
 						}
+					}
+					if(moveType != 2 && rc.isWeaponReady()){
+						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 					}
 					if(rc.isCoreReady()){
-						if(goToTarget && rc.getLocation().distanceSquaredTo(target) > 25){
-							RESOURCE_FUNCTIONS.BUG(target);
+						if(moveType == 0 && coreLocation != null){
+							int startDir = randall.nextInt(8);
+							int[] tryOrder = new int[]{0,1,-1,2,-2,3,-3,4};
+							double swarmRadius = RESOURCE_FUNCTIONS.getGoodSwarmRadius();
+							MapLocation current = rc.getLocation();
+							boolean hasMoved = false;
+							int minInd = -1;
+							int minDistance = -1;
+							for(int i = 0; i < tryOrder.length && !hasMoved; i++){
+								MapLocation moveTo = current.add(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i]));
+								int distance = moveTo.distanceSquaredTo(coreLocation);
+								if(distance > 2 && distance < (int)(swarmRadius + 1) && rc.canMove(current.directionTo(moveTo))){
+									rc.move(current.directionTo(moveTo));
+									hasMoved = true;
+								}
+								if(rc.canMove(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i]))){
+									int newdist = current.add(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i])).distanceSquaredTo(coreLocation);
+									if(minInd == -1 || newdist < minDistance){
+										minInd = i;
+										minDistance = newdist;
+									}
+								}
+							}
+							if(!hasMoved && minInd != -1){
+								rc.move(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[minInd]));
+							}
+							if(!locked){
+								RobotInfo[] enemiesInSight = rc.senseHostileRobots(rc.getLocation(),rc.getType().sensorRadiusSquared);
+								for(int i = 0; i < enemiesInSight.length; i++){
+									if(enemiesInSight[i].type == RobotType.ARCHON || enemiesInSight[i].type == RobotType.ZOMBIEDEN){
+										target = enemiesInSight[i].location;
+										targetID = enemiesInSight[i].ID;
+										moveType = 2;
+										rc.broadcastSignal((int)(rc.getLocation().distanceSquaredTo(coreLocation) * 1.1));
+									}
+								}
+							}
 						}
-						else{
-							Direction random = RESOURCE_FUNCTIONS.chooseRandomDirection();
-							if(rc.canMove(random)){
-								rc.move(random);
+						if(moveType == 1){
+							int startDir = randall.nextInt(8);
+							int[] tryOrder = new int[]{0,1,-1,2,-2,3,-3,4};
+							int minInd = -1;
+							int minDistance = -1;
+							MapLocation current = rc.getLocation();
+							for(int i = 0; i < tryOrder.length; i++){
+								if(rc.canMove(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i]))){
+									int newdist = current.add(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i])).distanceSquaredTo(target);
+									if(minInd == -1 || newdist < minDistance){
+										minInd = i;
+										minDistance = newdist;
+									}
+								}
+							}
+							if(minInd != -1){
+								rc.move(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[minInd]));
+							}
+							RobotInfo[] enemiesInSight = rc.senseHostileRobots(rc.getLocation(),rc.getType().sensorRadiusSquared);
+							for(int i = 0; i < enemiesInSight.length; i++){
+								if(enemiesInSight[i].type == RobotType.ARCHON || enemiesInSight[i].type == RobotType.ZOMBIEDEN){
+									target = enemiesInSight[i].location;
+									targetID = enemiesInSight[i].ID;
+									moveType = 2;
+									rc.broadcastSignal((int)(rc.getLocation().distanceSquaredTo(coreLocation) * 1.1));
+								}
+							}
+						}
+						if(moveType == 2){
+							if(rc.canSenseRobot(targetID)){
+								RobotInfo rr = rc.senseRobot(targetID);
+								target = rr.location;
+								if(rc.isWeaponReady() && rc.canAttackLocation(target)){
+									rc.attackLocation(target);
+								}
+							}else{
+								target = null;
+								targetID = -1;
+								moveType = 0;
+							}
+							int startDir = randall.nextInt(8);
+							int[] tryOrder = new int[]{0,1,-1,2,-2,3,-3,4};
+							int minInd = -1;
+							int minDistance = -1;
+							MapLocation current = rc.getLocation();
+							for(int i = 0; i < tryOrder.length && target != null; i++){
+								if(rc.canMove(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i]))){
+									int newdist = current.add(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[i])).distanceSquaredTo(target);
+									if(minInd == -1 || newdist < minDistance){
+										minInd = i;
+										minDistance = newdist;
+									}
+								}
+							}
+							if(minInd != -1 && rc.isCoreReady()){
+								rc.move(RESOURCE_FUNCTIONS.intToDir(startDir + tryOrder[minInd]));
 							}
 						}
 					}
-					if(rc.isWeaponReady()){
-						RESOURCE_FUNCTIONS.attackWeakestEnemy();
-						if(rc.isWeaponReady()){
-							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(target);
-							if(rubbleDirection != null){
-								rc.clearRubble(rubbleDirection);
-							}
-						}
-					}
-					Clock.yield();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
+				Clock.yield();
 			}
 		}
 	}
@@ -476,6 +564,9 @@ public class RobotPlayer{
 			goToTarget = false;
 			if(rc.getLocation().equals(rc.getInitialArchonLocations(ourTeam)[0])){
 				alpha = true;
+			}else{
+				target = rc.getInitialArchonLocations(ourTeam)[0];
+				goToTarget = true;
 			}
 		}
 
@@ -493,28 +584,16 @@ public class RobotPlayer{
 					for(int i = 0; i < signals.length; i++){
 						if(signals[i].getTeam() == ourTeam){
 							FancyMessage x = FancyMessage.getFromRecievedSignal(signals[i]);
-							System.out.println("type is " + x.type);
-							if(x.isMessage){
-								if(x.type == 2){
-									int xPos = x.ints.first;
-									int yPos = x.ints.second;
-									target = new MapLocation(xPos, yPos);
-									goToTarget = true;
-									mostRecentEnemyArchonLocations.add(new Triple<Integer,MapLocation,Integer>(0,new MapLocation(x.ints.first - 16000,x.ints.second - 16000),rc.getRoundNum()));
-								}
-								if(x.type == 3){
-									goToTarget = false;
-								}
+							if(!x.isMessage){
+								FancyMessage.sendMessage(1,x.senderLocation.x,x.senderLocation.y,(int)(RESOURCE_FUNCTIONS.getGoodSwarmRadius() * 1.1));
+								break;
 							}
 						}
 					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
 						if(alpha && rc.getRoundNum() % 10 == 0){
-							FancyMessage.sendMessage(2, rc.getLocation().x, rc.getLocation().y, 6400);
-						}
-						else if(alpha && rc.getRoundNum() > 10 && (rc.getRoundNum() - 5) % 10 == 0 && rc.getLocation().equals(target)){
-							FancyMessage.sendMessage(3, 0, 0, 1000);
+							FancyMessage.sendMessage(0,0,0,(int)(RESOURCE_FUNCTIONS.getGoodSwarmRadius() * 1.1));
 						}
 						if(!alpha){
 							if(goToTarget && rc.getLocation().distanceSquaredTo(target) > 2){
@@ -530,14 +609,14 @@ public class RobotPlayer{
 							if(RESOURCE_FUNCTIONS.tryBuild(type)){ //See function in RESOURCE_FUNCTIONS to know what it does
 								//After building scout, waits a turn, then signals it the location, so it has a good idea of where base is
 								//Also signals the scout which type to become
-								FancyMessage.sendMessage(4, 0, 0, 6400);
-								Clock.yield();
-								Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
+								//FancyMessage.sendMessage(4, 0, 0, 6400);
+								//Clock.yield();
+								/*Triple<Integer,Integer,Integer> scoutType = getScoutInitType();
 								//Check if near zombie round
 								if (mostRecentEnemyArchonLocations.size() != 0 && RESOURCE_FUNCTIONS.isCloseToZombieSpawnRound()) {
 									scoutType = getScoutHerdingType();
 								}
-								FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);
+								FancyMessage.sendMessage(0,scoutType.first | scoutType.second,scoutType.third,3);*/
 							}
 							
 						}
@@ -780,6 +859,15 @@ public class RobotPlayer{
 	 */
 	public static class RESOURCE_FUNCTIONS{
 
+		public static double getGoodSwarmRadius(){
+			int numRobots = rc.getRobotCount();
+			double radius = Math.sqrt((Swarmer.SWARM_RATIO * numRobots) / (2 * Math.PI));
+			if(radius >= 5){
+				return radius;
+			}
+			return 5;
+		}
+
 		/**
 		 * Direction intToDir
 		 *
@@ -989,7 +1077,7 @@ public class RobotPlayer{
 		 * @return RobotType that will be produced
 		 */
 		public static RobotType chooseRobotType() {
-			for(int i: zombieRounds){
+			/*for(int i: zombieRounds){
 				int currentRound = rc.getRoundNum();
 				if(i-currentRound<=20 && i-currentRound>=0){
 					return RobotType.SCOUT;
@@ -1005,7 +1093,8 @@ public class RobotPlayer{
 			if(fate > 1){
 				return RobotType.SOLDIER;
 			}
-			return RobotType.GUARD;
+			return RobotType.GUARD;*/
+			return RobotType.SOLDIER;
 		}
 		/**
 		 * boolean almostSurrounded
