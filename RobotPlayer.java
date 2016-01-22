@@ -430,6 +430,9 @@ public class RobotPlayer{
 									moveType = 0;
 								}else if(s.type == 3){ //Type 3: if in forced swarming, brings back to regular behavior
 									locked = false;
+								}else if(s.type == 5){
+									target = new MapLocation(s.ints.first, s.ints.second);
+									moveType = 1;
 								}
 							}
 						}
@@ -599,17 +602,35 @@ public class RobotPlayer{
 								FancyMessage.sendMessage(1,x.senderLocation.x,x.senderLocation.y,(int)(RESOURCE_FUNCTIONS.getGoodSwarmRadius() * 1.1));
 								break;
 							}
+							else if(alpha && x.type == 4 && !goToTarget && rc.getRobotCount() > 30){
+								int xPos = x.ints.first;
+								int yPos = x.ints.second;
+								target = new MapLocation(xPos, yPos);
+								goToTarget = true;
+							}
+							else if(!alpha && x.type == 5) {
+								target = new MapLocation(x.ints.first, x.ints.second);
+								goToTarget = true;
+							}
 						}
 					}
 					//If it can, always tries to build Scouts.
 					if(rc.isCoreReady()){
 						if(alpha && rc.getRoundNum() % 10 == 0){
-							FancyMessage.sendMessage(0,0,0,(int)(RESOURCE_FUNCTIONS.getGoodSwarmRadius() * 1.1));
+							if(goToTarget) {
+								FancyMessage.sendMessage(5, target.x, target.y, 1000);
+							}
+							else {
+								FancyMessage.sendMessage(0,0,0,(int)(RESOURCE_FUNCTIONS.getGoodSwarmRadius() * 1.1));
+							}
 						}
 						if(!alpha){
-							if(goToTarget && rc.getLocation().distanceSquaredTo(target) > 2){
+							if(goToTarget && rc.getRoundNum() % 2 == 0 && rc.getLocation().distanceSquaredTo(target) > 2){
 								RESOURCE_FUNCTIONS.BUG(target);
 							}
+						}
+						if(goToTarget && alpha) {
+							RESOURCE_FUNCTIONS.BUG(target);
 						}
 						MapLocation neutral = RESOURCE_FUNCTIONS.findAdjacentNeutralRobot();
 						if(neutral != null){
@@ -699,6 +720,7 @@ public class RobotPlayer{
 		 */
 		public Scout(){
 			disciples = 0;
+			base = rc.getLocation();
 		}
 
 		/**
@@ -711,7 +733,7 @@ public class RobotPlayer{
 		 */
 		public void run(){
 			while(true){
-				if(base == null){
+				/*if(base == null){
 					Signal[] signals = rc.emptySignalQueue();
 					if(signals.length > 0){
 						for(int i = 0; i < signals.length; i++){
@@ -734,7 +756,8 @@ public class RobotPlayer{
 							}
 						}
 					}
-				}
+				}*/
+				runAsArchonSearcher();
 			}
 		}
 
@@ -743,10 +766,13 @@ public class RobotPlayer{
 			while(!foundArchon){
 				try{
 					MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.scanArchonLocation();
+					if(enemyArchonLocation == null) {
+						enemyArchonLocation = RESOURCE_FUNCTIONS.scanZombieDen();
+					}
 					if(enemyArchonLocation != null){
 						int xPos = enemyArchonLocation.x;
 						int yPos = enemyArchonLocation.y;
-						FancyMessage.sendMessage(2, xPos + 16000, yPos + 16000, 1000);
+						FancyMessage.sendMessage(4, xPos, yPos, 6400);
 						foundArchon = true;
 					}else if(rc.isCoreReady()){
 						RESOURCE_FUNCTIONS.moveAsFarAwayAsPossibleFrom(base);
@@ -927,6 +953,17 @@ public class RobotPlayer{
 			}
 			return null;
 		}
+		public static MapLocation scanZombieDen() {
+			RobotInfo[] zombies = rc.senseNearbyRobots(rc.getType().sensorRadiusSquared, Team.ZOMBIE);
+			if(zombies != null) {
+				for(RobotInfo zombie: zombies) {
+					if(zombie.type.equals(RobotType.ZOMBIEDEN)) {
+						return zombie.location;
+					}
+				}
+			}
+			return null;
+		}
 
 		/**
 		 * int dirToInt
@@ -1093,18 +1130,11 @@ public class RobotPlayer{
 				if(i-currentRound<=20 && i-currentRound>=0){
 					return RobotType.SCOUT;
 				}
-			}
-			if(almostSurrounded()){
+			}*/
+			int fate = randall.nextInt(20);
+			if(fate == 0){
 				return RobotType.SCOUT;
 			}
-			if(numberOfRobotsInRadiusAndThoseRobots(RobotType.GUARD,3,ourTeam).first == 7){
-				return RobotType.SCOUT;
-			}
-			int fate = randall.nextInt(10);
-			if(fate > 1){
-				return RobotType.SOLDIER;
-			}
-			return RobotType.GUARD;*/
 			return RobotType.SOLDIER;
 		}
 		/**
