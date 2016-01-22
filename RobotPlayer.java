@@ -109,7 +109,7 @@ public class RobotPlayer{
 							rc.attackLocation(target);
 						}
 						else{
-							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(enemyArchonLocation);
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.findRubbleDirection();
 							if(rubbleDirection != null){
 								rc.clearRubble(rubbleDirection);
 							}
@@ -274,7 +274,7 @@ public class RobotPlayer{
 						}*/
 						RESOURCE_FUNCTIONS.attackWeakestEnemy();
 						if(rc.isWeaponReady()){
-							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(enemyArchonLocation);
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.findRubbleDirection();
 							if(rubbleDirection != null){
 								rc.clearRubble(rubbleDirection);
 							}
@@ -436,7 +436,18 @@ public class RobotPlayer{
 					}
 					if(moveType != 2 && rc.isWeaponReady()){
 						RESOURCE_FUNCTIONS.attackWeakestEnemy();
+						//if has not attacked yet
+						if(rc.isWeaponReady()) {
+							Direction rubbleDirection = RESOURCE_FUNCTIONS.clearRubbleForPath(target);
+							if(rubbleDirection == null) {
+								rubbleDirection = RESOURCE_FUNCTIONS.findRubbleDirection();
+							}
+							if(rubbleDirection != null){
+								rc.clearRubble(rubbleDirection);
+							}
+						}
 					}
+
 					if(rc.isCoreReady()){
 						if(moveType == 0 && coreLocation != null){
 							int startDir = randall.nextInt(8);
@@ -1404,8 +1415,17 @@ public class RobotPlayer{
 		}
 		public static Direction clearRubbleForPath(MapLocation enemyArchonLocation){
 			Direction enemyArchonDirection = rc.getLocation().directionTo(enemyArchonLocation);
-			if(enemyArchonDirection != null && rc.senseRubble(rc.getLocation().add(enemyArchonDirection)) > 0){
+			if(enemyArchonDirection != null && rc.senseRubble(rc.getLocation().add(enemyArchonDirection)) > 50){
 				return enemyArchonDirection;
+			}
+			return null;
+		}
+		public static Direction findRubbleDirection(){
+			for(Direction direction: DIRECTIONS) {
+				MapLocation rubbleLocation = rc.getLocation().add(direction);
+				if(rc.senseRubble(rubbleLocation) > 50) {
+					return direction;
+				}
 			}
 			return null;
 		}
