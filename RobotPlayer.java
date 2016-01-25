@@ -1134,8 +1134,11 @@ public class RobotPlayer{
 				}
 			}*/
 			int fate = randall.nextInt(20);
-			if(fate == 0){
+			/*if(fate == 0){
 				return RobotType.SCOUT;
+			}*/
+			if(fate < 4) {
+				return RobotType.GUARD;
 			}
 			return RobotType.SOLDIER;
 		}
