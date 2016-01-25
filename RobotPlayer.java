@@ -768,6 +768,9 @@ public class RobotPlayer{
 					MapLocation enemyArchonLocation = RESOURCE_FUNCTIONS.scanArchonLocation();
 					if(enemyArchonLocation == null) {
 						enemyArchonLocation = RESOURCE_FUNCTIONS.scanZombieDen();
+						if(enemyArchonLocation == null) {
+							enemyArchonLocation = RESOURCE_FUNCTIONS.scanNeutralArchonLocation();
+						}
 					}
 					if(enemyArchonLocation != null){
 						int xPos = enemyArchonLocation.x;
@@ -932,6 +935,17 @@ public class RobotPlayer{
 			for(int i = 0; i < robots.length; i++) {
 				if(robots[i].type == RobotType.ARCHON) {
 					return robots[i].location;
+				}
+			}
+			return null;
+		}
+		public static MapLocation scanNeutralArchonLocation() {
+			RobotInfo[] robots = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadiusSquared, Team.NEUTRAL);
+			if(robots != null) {
+				for(int i = 0; i < robots.length;i ++) {
+					if(robots[i].type.equals(RobotType.ARCHON)) {
+						return robots[i].location;
+					}
 				}
 			}
 			return null;
